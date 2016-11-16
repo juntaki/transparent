@@ -7,73 +7,61 @@ type BackendCache interface {
 	Add(key interface{}, value interface{}) bool // Add key-value to cache
 }
 
-// CacheOps supports Get and multiple type of Set
-type CacheOps interface {
-	// Get value from cache, or if not found, from source.
-	Get(key interface{}) (interface{}, bool)
-
-	// Consider the follwoing case
-	// [Backend cache] -> [Next cache] -> [Source]
-	//                                    ^
-	// [Another cache] ------------------/
-
-	// Set new value to Backend cache only
-	Set(key interface{}, value interface{}) bool
-
-	// SetSource set the value to Backend cache, Next cache, and Source
-	SetSource(key interface{}, value interface{}) bool
-
-	// SetSource + ensure Anoter cache is also up to date
-	SetWorld(key interface{}, value interface{}) bool
-}
+// Consider the follwoing case
+// [Backend cache] -> [Next cache] -> [Source]
+//                                    ^
+// [Another cache] ------------------/
 
 // Cache is transparent interface to its backend cache
 // Cache itself have CacheOps interface
 type Cache struct {
 	cache BackendCache
-	next  CacheOps
+	next  *Cache
 }
 
 // Get value from cache, or if not found, from source.
-func (c Cache) Get(key interface{}) (interface{}, bool) {
+func (c *Cache) Get(key interface{}) interface{} {
 	// Try to get backend cache
-	value, ok := c.cache.Get(key)
-	if !ok {
+	value, found := c.cache.Get(key)
+	if !found {
 		// Recursively get value from source.
-		value, ok := c.next.Get(key)
-		if !ok {
-			return nil, false
-		}
+		value := c.next.Get(key)
 		c.Set(key, value)
-		return value, true
+		return value
 	}
-	return value, true
+	return value
 }
 
-// Set new value to Backend cache only
-func (c Cache) Set(key interface{}, value interface{}) bool {
-	return c.cache.Add(key, value)
+// Set new value to Backend cache.
+func (c *Cache) Set(key interface{}, value interface{}) {
+	c.setValue(key, value, false)
 }
 
-// SetSource set the value to Backend cache, Next cache, and Source
-func (c Cache) SetSource(key interface{}, value interface{}) bool {
-	ok := c.Set(key, value)
-	if !ok {
-		return false
-	}
+// SetSync set the value to Backend cache, Next cache, and Source
+func (c *Cache) SetSync(key interface{}, value interface{}) {
+	c.setValue(key, value, true)
+}
+
+func (c *Cache) setValue(key interface{}, value interface{}, sync bool) {
+	c.cache.Add(key, value)
 
 	if c.next == nil {
 		// This backend is final destination
-		return true
+		return
 	}
 
 	// set value recursively
-	c.next.SetSource(key, value)
-	return true
+	if sync {
+		c.next.SetSync(key, value)
+	} else {
+		go c.next.SetSync(key, value)
+	}
+
+	return
 }
 
 // SetWorld means SetSource + ensure Anoter cache is also up to date
-func (c Cache) SetWorld(key interface{}, value interface{}) bool {
+func (c *Cache) SetWorld(key interface{}, value interface{}) bool {
 	//TODO
 	return false
 }

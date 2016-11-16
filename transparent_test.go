@@ -1,7 +1,6 @@
 package transparent
 
 import (
-	"fmt"
 	"math/rand"
 	"testing"
 	"time"
@@ -20,80 +19,88 @@ func (d dummySource) Add(k, v interface{}) bool {
 	return true
 }
 
-func TestTransparentCache(t *testing.T) {
-	var d dummySource
-	c := Cache{
+var d dummySource
+var c Cache
+var tiered Cache
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
+	d = dummySource{}
+	c = Cache{
 		cache: d,
 		next:  nil,
 	}
 
-	value, _ := c.Get(100)
-	fmt.Println(value)
+	lru, err := lru.New(10)
+	if err != nil {
+		panic("LRU error")
+	}
+	tiered = Cache{
+		cache: lru,
+		next:  &c,
+	}
+}
+
+func TestTransparentCache(t *testing.T) {
+	value := c.Get(100)
+	if value != "test" {
+		t.Error(value)
+	}
 	c.Set(100, 100)
-	value, _ = c.Get(100)
-	fmt.Println(value)
 }
 
 func TestTieredTransparentCache(t *testing.T) {
-	var d dummySource
-	source := Cache{
-		cache: d,
-		next:  nil,
+	value := tiered.Get(100)
+	if value != "test" {
+		t.Error(value)
 	}
+	tiered.SetSync(100, 100)
 
-	lru, err := lru.New(10)
-	if err != nil {
-		panic("LRU error")
+	value = tiered.Get(100)
+	if value != 100 {
+		t.Error(value)
 	}
-	c := Cache{
-		cache: lru,
-		next:  source,
-	}
-
-	value, _ := c.Get(100)
-	fmt.Println(value)
-	c.Set(100, 100)
-	value, _ = c.Get(100)
-	fmt.Println(value)
 }
 
 func BenchmarkTransparentCacheGet(b *testing.B) {
-	var d dummySource
-	c := Cache{
-		cache: d,
-		next:  nil,
-	}
-
-	rand.Seed(time.Now().UnixNano())
-
 	for i := 0; i < b.N; i++ {
 		r := rand.Intn(5)
 		c.Get(r)
+	}
+}
+
+func BenchmarkTransparentCacheSet(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		r := rand.Intn(5)
 		c.Set(r, "benchmarking")
 	}
 }
 
-func BenchmarkTieredTransparentCacheGet(b *testing.B) {
-	var d dummySource
-	source := Cache{
-		cache: d,
-		next:  nil,
-	}
-
-	lru, err := lru.New(10)
-	if err != nil {
-		panic("LRU error")
-	}
-	c := Cache{
-		cache: lru,
-		next:  source,
-	}
-
-	rand.Seed(time.Now().UnixNano())
-
+func BenchmarkTransparentCacheSetSync(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		r := rand.Intn(5)
-		c.Get(r)
-		c.Set(r, "benchmarking")
+		c.SetSync(r, "benchmarking")
+	}
+}
+
+// Tiered
+func BenchmarkTieredTransparentCacheGet(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		r := rand.Intn(5)
+		tiered.Get(r)
+	}
+}
+
+func BenchmarkTieredTransparentCacheSet(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		r := rand.Intn(5)
+		tiered.Set(r, "benchmarking")
+	}
+}
+
+func BenchmarkTieredTransparentCacheSetSync(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		r := rand.Intn(5)
+		tiered.SetSync(r, "benchmarking")
 	}
 }
