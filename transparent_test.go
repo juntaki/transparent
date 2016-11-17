@@ -8,14 +8,18 @@ import (
 	lru "github.com/hashicorp/golang-lru"
 )
 
-type dummySource struct{}
+type dummySource struct {
+	list map[int]string
+}
 
 func (d dummySource) Get(k interface{}) (interface{}, bool) {
 	time.Sleep(100 * time.Millisecond)
-	return "test", true
+
+	return d.list[k.(int)], true
 }
 func (d dummySource) Add(k, v interface{}) bool {
 	time.Sleep(100 * time.Millisecond)
+	d.list[k.(int)] = v.(string)
 	return true
 }
 
@@ -26,6 +30,7 @@ var tiered Cache
 func init() {
 	rand.Seed(time.Now().UnixNano())
 	d = dummySource{}
+	d.list = make(map[int]string, 0)
 	c = Cache{
 		cache: d,
 		next:  nil,
@@ -42,11 +47,11 @@ func init() {
 }
 
 func TestTransparentCache(t *testing.T) {
+	c.Set(100, "test")
 	value := c.Get(100)
 	if value != "test" {
 		t.Error(value)
 	}
-	c.Set(100, 100)
 }
 
 func TestTieredTransparentCache(t *testing.T) {
@@ -54,10 +59,10 @@ func TestTieredTransparentCache(t *testing.T) {
 	if value != "test" {
 		t.Error(value)
 	}
-	tiered.SetSync(100, 100)
+	tiered.SetSync(100, "test")
 
 	value = tiered.Get(100)
-	if value != 100 {
+	if value != "test" {
 		t.Error(value)
 	}
 }
