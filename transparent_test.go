@@ -121,7 +121,7 @@ func TestConcurrentUpdate(t *testing.T) {
 }
 
 func TestSync(t *testing.T) {
-	for i := 0; i < 350; i++ {
+	for i := 0; i < 349; i++ {
 		tiered.SetWriteBack(i, "writeback")
 	}
 	tiered.Sync()
