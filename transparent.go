@@ -32,12 +32,12 @@ func (c *Cache) Get(key interface{}) interface{} {
 	return value
 }
 
-// Set new value to Backend cache.
+// SetWriteBack new value to Backend cache.
 func (c *Cache) SetWriteBack(key interface{}, value interface{}) {
 	c.setValue(key, value, false)
 }
 
-// SetSync set the value to Backend cache, Next cache, and Source
+// SetWriteThrough set the value to Backend cache, Next cache, and Source
 func (c *Cache) SetWriteThrough(key interface{}, value interface{}) {
 	c.setValue(key, value, true)
 }
