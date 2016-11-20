@@ -89,9 +89,3 @@ func (c *Cache) setValue(key interface{}, value interface{}, sync bool) {
 
 	return
 }
-
-// SetWorld means SetSource + ensure Anoter cache is also up to date
-func (c *Cache) SetWorld(key interface{}, value interface{}) bool {
-	//TODO
-	return false
-}
