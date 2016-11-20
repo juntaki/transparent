@@ -26,19 +26,19 @@ func (c *Cache) Get(key interface{}) interface{} {
 	if !found {
 		// Recursively get value from source.
 		value := c.next.Get(key)
-		c.Set(key, value)
+		c.SetWriteBack(key, value)
 		return value
 	}
 	return value
 }
 
 // Set new value to Backend cache.
-func (c *Cache) Set(key interface{}, value interface{}) {
+func (c *Cache) SetWriteBack(key interface{}, value interface{}) {
 	c.setValue(key, value, false)
 }
 
 // SetSync set the value to Backend cache, Next cache, and Source
-func (c *Cache) SetSync(key interface{}, value interface{}) {
+func (c *Cache) SetWriteThrough(key interface{}, value interface{}) {
 	c.setValue(key, value, true)
 }
 
@@ -52,9 +52,9 @@ func (c *Cache) setValue(key interface{}, value interface{}, sync bool) {
 
 	// set value recursively
 	if sync {
-		c.next.SetSync(key, value)
+		c.next.SetWriteThrough(key, value)
 	} else {
-		go c.next.SetSync(key, value)
+		go c.next.SetWriteThrough(key, value)
 	}
 
 	return

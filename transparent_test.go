@@ -47,7 +47,7 @@ func init() {
 }
 
 func TestTransparentCache(t *testing.T) {
-	c.Set(100, "test")
+	c.SetWriteBack(100, "test")
 	value := c.Get(100)
 	if value != "test" {
 		t.Error(value)
@@ -59,7 +59,7 @@ func TestTieredTransparentCache(t *testing.T) {
 	if value != "test" {
 		t.Error(value)
 	}
-	tiered.SetSync(100, "test")
+	tiered.SetWriteThrough(100, "test")
 
 	value = tiered.Get(100)
 	if value != "test" {
@@ -74,17 +74,17 @@ func BenchmarkTransparentCacheGet(b *testing.B) {
 	}
 }
 
-func BenchmarkTransparentCacheSet(b *testing.B) {
+func BenchmarkTransparentCacheSetWriteBack(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		r := rand.Intn(5)
-		c.Set(r, "benchmarking")
+		c.SetWriteBack(r, "benchmarking")
 	}
 }
 
-func BenchmarkTransparentCacheSetSync(b *testing.B) {
+func BenchmarkTransparentCacheSetWriteThrough(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		r := rand.Intn(5)
-		c.SetSync(r, "benchmarking")
+		c.SetWriteThrough(r, "benchmarking")
 	}
 }
 
@@ -96,16 +96,16 @@ func BenchmarkTieredTransparentCacheGet(b *testing.B) {
 	}
 }
 
-func BenchmarkTieredTransparentCacheSet(b *testing.B) {
+func BenchmarkTieredTransparentCacheSetWriteBack(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		r := rand.Intn(5)
-		tiered.Set(r, "benchmarking")
+		tiered.SetWriteBack(r, "benchmarking")
 	}
 }
 
-func BenchmarkTieredTransparentCacheSetSync(b *testing.B) {
+func BenchmarkTieredTransparentCacheSetWriteThrough(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		r := rand.Intn(5)
-		tiered.SetSync(r, "benchmarking")
+		tiered.SetWriteThrough(r, "benchmarking")
 	}
 }
