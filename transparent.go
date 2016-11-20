@@ -7,7 +7,7 @@ type BackendCache interface {
 	Add(key interface{}, value interface{}) bool // Add key-value to cache
 }
 
-// Consider the follwoing case
+// Consider the following case
 // [Backend cache] -> [Next cache] -> [Source]
 //                                    ^
 // [Another cache] ------------------/
