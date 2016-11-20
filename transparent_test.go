@@ -62,6 +62,20 @@ func MyTeardown() {
 	tiered.Finalize()
 }
 
+func TestFinalize(t *testing.T) {
+	lru, err := lru.New(10)
+	if err != nil {
+		panic("LRU error")
+	}
+	cache := Cache{
+		cache: lru,
+		next:  &c,
+	}
+	cache.Initialize(100)
+	cache.SetWriteThrough(100, "Test")
+	cache.Finalize()
+}
+
 // Simple Set and Get
 func TestCache(t *testing.T) {
 	c.SetWriteBack(100, "test")
