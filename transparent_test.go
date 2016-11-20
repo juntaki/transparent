@@ -12,8 +12,8 @@ import (
 func TestMain(m *testing.M) {
 	MyInit()
 	retCode := m.Run()
-	os.Exit(retCode)
 	MyTeardown()
+	os.Exit(retCode)
 }
 
 // Define dummy source
@@ -53,8 +53,8 @@ func MyInit() {
 		cache: lru,
 		next:  &c,
 	}
-	c.Initialize(1000)
-	tiered.Initialize(1000)
+	c.Initialize(300)
+	tiered.Initialize(300)
 }
 
 func MyTeardown() {
