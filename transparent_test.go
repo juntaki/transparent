@@ -99,6 +99,18 @@ func TestTieredCache(t *testing.T) {
 	}
 }
 
+func TestConcurrentUpdate(t *testing.T) {
+	for i := 0; i < 10; i++ {
+		tiered.SetWriteBack(100, "writeback")
+	}
+	tiered.SetWriteThrough(100, "writethrough")
+	value1 := c.Get(100)
+	value2 := tiered.Get(100)
+	if value1 != value2 {
+		t.Error(value1, value2)
+	}
+}
+
 func BenchmarkCacheGet(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		r := rand.Intn(5)

@@ -1,6 +1,8 @@
 // Package transparent implements transparent cache operation.
 package transparent
 
+import "time"
+
 // BackendCache supposes to be on-memory cache like LRU, or database, etc..
 type BackendCache interface {
 	Get(key interface{}) (interface{}, bool)
@@ -18,6 +20,7 @@ type Cache struct {
 	cache BackendCache
 	next  *Cache
 	log   chan keyValue
+	sync  chan bool
 	done  chan bool
 }
 
@@ -31,14 +34,37 @@ type keyValue struct {
 func (c *Cache) Initialize(size int) {
 	c.log = make(chan keyValue, size)
 	c.done = make(chan bool, 1)
+
 	go func(c *Cache) {
-		for {
-			if kv, ok := <-c.log; ok {
-				c.next.SetWriteBack(kv.key, kv.value)
-			} else {
+		log := make(map[interface{}]interface{})
+		done := false
+		for { // infinite loop
+		dedup:
+			for { // loop for dedup request
+				select {
+				case kv, ok := <-c.log:
+					if !ok {
+						done = true
+						break dedup
+					}
+					log[kv.key] = kv.value
+					if len(log) > 5 {
+						break dedup
+					}
+				case <-time.After(time.Second * 5):
+					break dedup
+				}
+			}
+			// flush value
+			for k, v := range log {
+				c.next.SetWriteBack(k, v)
+			}
+			if done {
 				c.done <- true
 				return
 			}
+			// reset
+			log = make(map[interface{}]interface{})
 		}
 	}(c)
 }
