@@ -3,6 +3,7 @@ package transparent
 import (
 	"math/rand"
 	"os"
+	"strconv"
 	"testing"
 	"time"
 
@@ -72,8 +73,16 @@ func TestFinalize(t *testing.T) {
 		next:  &c,
 	}
 	cache.Initialize(100)
-	cache.SetWriteThrough(100, "Test")
+	for i := 0; i < 100; i++ {
+		cache.SetWriteBack(i, strconv.Itoa(i))
+	}
 	cache.Finalize()
+
+	// not proper use
+	value := cache.Get(99)
+	if value != "99" {
+		t.Error(value)
+	}
 }
 
 // Simple Set and Get
@@ -100,12 +109,24 @@ func TestTieredCache(t *testing.T) {
 }
 
 func TestConcurrentUpdate(t *testing.T) {
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 350; i++ {
 		tiered.SetWriteBack(100, "writeback")
 	}
 	tiered.SetWriteThrough(100, "writethrough")
 	value1 := c.Get(100)
 	value2 := tiered.Get(100)
+	if value1 != value2 {
+		t.Error(value1, value2)
+	}
+}
+
+func TestSync(t *testing.T) {
+	for i := 0; i < 350; i++ {
+		tiered.SetWriteBack(i, "writeback")
+	}
+	tiered.Sync()
+	value1 := c.Get(300)
+	value2 := tiered.Get(300)
 	if value1 != value2 {
 		t.Error(value1, value2)
 	}

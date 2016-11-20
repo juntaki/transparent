@@ -17,11 +17,12 @@ type BackendCache interface {
 // Cache is transparent interface to its backend cache
 // Cache itself have CacheOps interface
 type Cache struct {
-	cache BackendCache
-	next  *Cache
-	log   chan keyValue
-	sync  chan bool
-	done  chan bool
+	cache  BackendCache
+	next   *Cache
+	log    chan keyValue
+	sync   chan bool
+	synced chan bool
+	done   chan bool
 }
 
 // Async log writer use this struct in its channel
@@ -34,39 +35,69 @@ type keyValue struct {
 func (c *Cache) Initialize(size int) {
 	c.log = make(chan keyValue, size)
 	c.done = make(chan bool, 1)
+	c.sync = make(chan bool, 1)
+	c.synced = make(chan bool, 1)
 
-	go func(c *Cache) {
-		log := make(map[interface{}]interface{})
-		done := false
-		for { // infinite loop
-		dedup:
-			for { // loop for dedup request
-				select {
-				case kv, ok := <-c.log:
-					if !ok {
-						done = true
-						break dedup
-					}
-					log[kv.key] = kv.value
-					if len(log) > 5 {
-						break dedup
-					}
-				case <-time.After(time.Second * 5):
+	go c.flush()
+}
+
+func (c *Cache) flush() {
+	log := make(map[interface{}]interface{})
+	done := false
+	for { // infinite loop
+	dedup:
+		for { // loop for dedup request
+			select {
+			case kv, ok := <-c.log:
+				// dedup the same key request
+				if !ok {
+					// channel is closed by Finalize
+					done = true
 					break dedup
 				}
+				log[kv.key] = kv.value
+
+				// Too much keys cached
+				if len(log) > 5 {
+					break dedup
+				}
+			case <-c.sync:
+				// Flush current buffer
+				for k, v := range log {
+					c.next.SetWriteBack(k, v)
+				}
+				// Flush value in channel
+				// Switch to new channel for current writer
+				old := *c
+				c.log = make(chan keyValue, len(c.log))
+
+				// Finalize old log
+				close(old.log)
+				old.flush()
+
+				// Next, recursively
+				if old.next != nil {
+					old.next.sync <- true
+					<-old.next.synced
+				}
+
+				c.synced <- true
+			case <-time.After(time.Second * 1):
+				// Flush if silent for one sec
+				break dedup
 			}
-			// flush value
-			for k, v := range log {
-				c.next.SetWriteBack(k, v)
-			}
-			if done {
-				c.done <- true
-				return
-			}
-			// reset
-			log = make(map[interface{}]interface{})
 		}
-	}(c)
+		// flush value
+		for k, v := range log {
+			c.next.SetWriteBack(k, v)
+		}
+		if done {
+			c.done <- true
+			return
+		}
+		// reset
+		log = make(map[interface{}]interface{})
+	}
 }
 
 // Finalize stops goroutine
@@ -108,10 +139,17 @@ func (c *Cache) setValue(key interface{}, value interface{}, sync bool) {
 
 	// set value recursively
 	if sync {
+		c.log <- keyValue{key, value}
 		c.next.SetWriteThrough(key, value)
 	} else {
 		c.log <- keyValue{key, value}
 	}
 
 	return
+}
+
+// Sync current buffered value
+func (c *Cache) Sync() {
+	c.sync <- true
+	<-c.synced
 }
