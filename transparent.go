@@ -17,6 +17,36 @@ type BackendCache interface {
 type Cache struct {
 	cache BackendCache
 	next  *Cache
+	log   chan keyValue
+	done  chan bool
+}
+
+// Async log writer use this struct in its channel
+type keyValue struct {
+	key   interface{}
+	value interface{}
+}
+
+// Initialize start goroutine for asynchronously set value
+func (c *Cache) Initialize(size int) {
+	c.log = make(chan keyValue, size)
+	c.done = make(chan bool, 1)
+	go func(c *Cache) {
+		for {
+			if kv, ok := <-c.log; ok {
+				c.next.SetWriteBack(kv.key, kv.value)
+			} else {
+				c.done <- true
+				return
+			}
+		}
+	}(c)
+}
+
+// Finalize stops goroutine
+func (c *Cache) Finalize() {
+	close(c.log)
+	<-c.done
 }
 
 // Get value from cache, or if not found, from source.
@@ -54,7 +84,7 @@ func (c *Cache) setValue(key interface{}, value interface{}, sync bool) {
 	if sync {
 		c.next.SetWriteThrough(key, value)
 	} else {
-		go c.next.SetWriteThrough(key, value)
+		c.log <- keyValue{key, value}
 	}
 
 	return

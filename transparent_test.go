@@ -2,23 +2,32 @@ package transparent
 
 import (
 	"math/rand"
+	"os"
 	"testing"
 	"time"
 
 	lru "github.com/hashicorp/golang-lru"
 )
 
+func TestMain(m *testing.M) {
+	MyInit()
+	retCode := m.Run()
+	os.Exit(retCode)
+	MyTeardown()
+}
+
+// Define dummy source
 type dummySource struct {
 	list map[int]string
 }
 
 func (d dummySource) Get(k interface{}) (interface{}, bool) {
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(5 * time.Millisecond)
 
 	return d.list[k.(int)], true
 }
 func (d dummySource) Add(k, v interface{}) bool {
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(5 * time.Millisecond)
 	d.list[k.(int)] = v.(string)
 	return true
 }
@@ -27,7 +36,7 @@ var d dummySource
 var c Cache
 var tiered Cache
 
-func init() {
+func MyInit() {
 	rand.Seed(time.Now().UnixNano())
 	d = dummySource{}
 	d.list = make(map[int]string, 0)
@@ -44,9 +53,17 @@ func init() {
 		cache: lru,
 		next:  &c,
 	}
+	c.Initialize(1000)
+	tiered.Initialize(1000)
 }
 
-func TestTransparentCache(t *testing.T) {
+func MyTeardown() {
+	c.Finalize()
+	tiered.Finalize()
+}
+
+// Simple Set and Get
+func TestCache(t *testing.T) {
 	c.SetWriteBack(100, "test")
 	value := c.Get(100)
 	if value != "test" {
@@ -54,7 +71,8 @@ func TestTransparentCache(t *testing.T) {
 	}
 }
 
-func TestTieredTransparentCache(t *testing.T) {
+// Tiered, Set and Get
+func TestTieredCache(t *testing.T) {
 	value := tiered.Get(100)
 	if value != "test" {
 		t.Error(value)
@@ -67,21 +85,21 @@ func TestTieredTransparentCache(t *testing.T) {
 	}
 }
 
-func BenchmarkTransparentCacheGet(b *testing.B) {
+func BenchmarkCacheGet(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		r := rand.Intn(5)
 		c.Get(r)
 	}
 }
 
-func BenchmarkTransparentCacheSetWriteBack(b *testing.B) {
+func BenchmarkCacheSetWriteBack(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		r := rand.Intn(5)
 		c.SetWriteBack(r, "benchmarking")
 	}
 }
 
-func BenchmarkTransparentCacheSetWriteThrough(b *testing.B) {
+func BenchmarkCacheSetWriteThrough(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		r := rand.Intn(5)
 		c.SetWriteThrough(r, "benchmarking")
@@ -89,21 +107,21 @@ func BenchmarkTransparentCacheSetWriteThrough(b *testing.B) {
 }
 
 // Tiered
-func BenchmarkTieredTransparentCacheGet(b *testing.B) {
+func BenchmarkTieredCacheGet(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		r := rand.Intn(5)
 		tiered.Get(r)
 	}
 }
 
-func BenchmarkTieredTransparentCacheSetWriteBack(b *testing.B) {
-	for i := 0; i < b.N; i++ {
+func BenchmarkTieredCacheSetWriteBack(b *testing.B) {
+	for i := 0; i < 100; i++ {
 		r := rand.Intn(5)
 		tiered.SetWriteBack(r, "benchmarking")
 	}
 }
 
-func BenchmarkTieredTransparentCacheSetWriteThrough(b *testing.B) {
+func BenchmarkTieredCacheSetWriteThrough(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		r := rand.Intn(5)
 		tiered.SetWriteThrough(r, "benchmarking")
