@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	tl "./lru"
 	gl "github.com/golang/groupcache/lru"
 	hl "github.com/hashicorp/golang-lru"
 	"github.com/juntaki/transparent"
@@ -36,21 +37,25 @@ func (d glTier) Add(k transparent.Key, v interface{}) {
 }
 
 func TestMain(m *testing.M) {
-	hlru, err := hl.New(10)
-	if err != nil {
-		panic("LRU error")
-	}
-
-	tieredCacheHashicorp := hlTier{cache: hlru}
-	MyInit(tieredCacheHashicorp)
+	MyInit(tl.New(100))
 	retCode := m.Run()
 	MyTeardown()
 
-	glru := gl.New(10)
+	hlru, err := hl.New(100)
+	if err != nil {
+		panic("LRU error")
+	}
+	tieredCacheHashicorp := hlTier{cache: hlru}
+	MyInit(tieredCacheHashicorp)
+	retCode = m.Run()
+	MyTeardown()
+
+	glru := gl.New(100)
 	tieredCacheGoogle := glTier{cache: glru}
 	MyInit(tieredCacheGoogle)
 	retCode = m.Run()
 	MyTeardown()
+
 	os.Exit(retCode)
 }
 
