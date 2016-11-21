@@ -1,26 +1,30 @@
 // Package transparent implements transparent cache operation.
-package transparent
-
-import "time"
-
-// Key is comparable value
-type Key interface{}
-
-// BackendCache supposes to be on-memory cache like LRU, or database, etc..
-type BackendCache interface {
-	Get(key Key) (interface{}, bool)
-	Add(key Key, value interface{})
-}
-
+//
 //  [Application]
 //    |
 //    v Get/Set
 //  [Transparent cache] -[Flush buffer]-> [Next cache]
 //   `-[Backend cache]                     `-[Source cache]
 //      `-[LRU]                               `-[S3]
+package transparent
+
+import (
+	"time"
+
+	"github.com/juntaki/transparent"
+)
+
+// Key is comparable value
+type Key interface{}
+
+// BackendCache supposes to be on-memory cache like LRU, or database, etc..
+type BackendCache interface {
+	Get(key transparent.Key) (interface{}, bool)
+	Add(key transparent.Key, value interface{})
+}
 
 // Cache is transparent interface to its backend cache
-// You can stack Cache for tiring
+// You can stack Cache
 type Cache struct {
 	cache  BackendCache  // Target cache
 	next   *Cache        // Next should be more stable but slow
@@ -32,23 +36,35 @@ type Cache struct {
 
 // Flush buffer use this struct in its log channel
 type keyValue struct {
-	key   interface{}
+	key   Key
 	value interface{}
 }
 
-// Initialize start flush buffer goroutine for asynchronously set value
-func (c *Cache) Initialize(bufferSize int) {
-	c.log = make(chan keyValue, bufferSize)
-	c.done = make(chan bool, 1)
-	c.sync = make(chan bool, 1)
-	c.synced = make(chan bool, 1)
+func New(cache BackendCache, next *Cache, bufferSize int) *Cache {
+	return &Cache{
+		cache:  cache,
+		next:   next,
+		log:    make(chan keyValue, bufferSize),
+		done:   make(chan bool, 1),
+		sync:   make(chan bool, 1),
+		synced: make(chan bool, 1),
+	}
+}
 
+// Initialize start flush buffer goroutine for asynchronously set value
+func (c *Cache) Initialize() {
 	go c.flush()
+}
+
+// Finalize stops goroutine
+func (c *Cache) Finalize() {
+	close(c.log)
+	<-c.done
 }
 
 // Flush buffer
 func (c *Cache) flush() {
-	buffer := make(map[interface{}]interface{})
+	buffer := make(map[Key]interface{})
 	done := false
 	for { // main loop
 	dedup:
@@ -71,7 +87,7 @@ func (c *Cache) flush() {
 				for k, v := range buffer {
 					c.next.SetWriteBack(k, v)
 				}
-				buffer = make(map[interface{}]interface{})
+				buffer = make(map[Key]interface{})
 
 				// Flush value in channel buffer
 				//  Switch to new channel for current writer
@@ -104,14 +120,8 @@ func (c *Cache) flush() {
 			return
 		}
 		// Reset buffer
-		buffer = make(map[interface{}]interface{})
+		buffer = make(map[Key]interface{})
 	}
-}
-
-// Finalize stops goroutine
-func (c *Cache) Finalize() {
-	close(c.log)
-	<-c.done
 }
 
 // Get value from cache, or if not found, from source.

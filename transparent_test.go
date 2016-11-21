@@ -9,6 +9,7 @@ import (
 
 	gl "github.com/golang/groupcache/lru"
 	hl "github.com/hashicorp/golang-lru"
+	"github.com/juntaki/transparent"
 )
 
 // Define tiered cache
@@ -16,10 +17,10 @@ type hlTier struct {
 	cache *hl.Cache
 }
 
-func (d hlTier) Get(k Key) (interface{}, bool) {
+func (d hlTier) Get(k transparent.Key) (interface{}, bool) {
 	return d.cache.Get(k)
 }
-func (d hlTier) Add(k Key, v interface{}) {
+func (d hlTier) Add(k transparent.Key, v interface{}) {
 	d.cache.Add(k, v)
 }
 
@@ -27,10 +28,10 @@ type glTier struct {
 	cache *gl.Cache
 }
 
-func (d glTier) Get(k Key) (interface{}, bool) {
+func (d glTier) Get(k transparent.Key) (interface{}, bool) {
 	return d.cache.Get(k)
 }
-func (d glTier) Add(k Key, v interface{}) {
+func (d glTier) Add(k transparent.Key, v interface{}) {
 	d.cache.Add(k, v)
 }
 
@@ -58,36 +59,38 @@ type dummySource struct {
 	list map[int]string
 }
 
-func (d dummySource) Get(k Key) (interface{}, bool) {
+func (d dummySource) Get(k transparent.Key) (interface{}, bool) {
 	time.Sleep(5 * time.Millisecond)
 
 	return d.list[k.(int)], true
 }
-func (d dummySource) Add(k Key, v interface{}) {
+func (d dummySource) Add(k transparent.Key, v interface{}) {
 	time.Sleep(5 * time.Millisecond)
 	d.list[k.(int)] = v.(string)
 }
 
 var dummybackend0 dummySource
-var dummycache0 Cache
+var dummycache0 *Cache
 var tieredbackend1 BackendCache
-var tieredcache1 Cache
+var tieredcache1 *Cache
 
 func MyInit(backend BackendCache) {
 	rand.Seed(time.Now().UnixNano())
 	dummybackend0 = dummySource{}
 	dummybackend0.list = make(map[int]string, 0)
-	dummycache0 = Cache{
-		cache: &dummybackend0,
-		next:  nil,
-	}
+	dummycache0 = New(
+		dummybackend0,
+		nil,
+		300,
+	)
 	tieredbackend1 = backend
-	tieredcache1 = Cache{
-		cache: backend,
-		next:  &dummycache0,
-	}
-	dummycache0.Initialize(300)
-	tieredcache1.Initialize(300)
+	tieredcache1 = New(
+		backend,
+		dummycache0,
+		300,
+	)
+	dummycache0.Initialize()
+	tieredcache1.Initialize()
 }
 
 func MyTeardown() {
@@ -96,11 +99,12 @@ func MyTeardown() {
 }
 
 func TestFinalize(t *testing.T) {
-	cache := Cache{
-		cache: tieredbackend1,
-		next:  &dummycache0,
-	}
-	cache.Initialize(100)
+	cache := New(
+		tieredbackend1,
+		dummycache0,
+		100,
+	)
+	cache.Initialize()
 	for i := 0; i < 100; i++ {
 		cache.SetWriteBack(i, strconv.Itoa(i))
 	}
@@ -190,7 +194,7 @@ func BenchmarkTieredCacheGet(b *testing.B) {
 }
 
 func BenchmarkTieredCacheSetWriteBack(b *testing.B) {
-	for i := 0; i < 100; i++ {
+	for i := 0; i < b.N; i++ {
 		r := rand.Intn(5)
 		tieredcache1.SetWriteBack(r, "benchmarking")
 	}
