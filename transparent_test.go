@@ -7,12 +7,48 @@ import (
 	"testing"
 	"time"
 
-	lru "github.com/hashicorp/golang-lru"
+	gl "github.com/golang/groupcache/lru"
+	hl "github.com/hashicorp/golang-lru"
 )
 
+// Define tiered cache
+type hlTier struct {
+	cache *hl.Cache
+}
+
+func (d hlTier) Get(k Key) (interface{}, bool) {
+	return d.cache.Get(k)
+}
+func (d hlTier) Add(k Key, v interface{}) {
+	d.cache.Add(k, v)
+}
+
+type glTier struct {
+	cache *gl.Cache
+}
+
+func (d glTier) Get(k Key) (interface{}, bool) {
+	return d.cache.Get(k)
+}
+func (d glTier) Add(k Key, v interface{}) {
+	d.cache.Add(k, v)
+}
+
 func TestMain(m *testing.M) {
-	MyInit()
+	hlru, err := hl.New(10)
+	if err != nil {
+		panic("LRU error")
+	}
+
+	tieredCacheHashicorp := hlTier{cache: hlru}
+	MyInit(tieredCacheHashicorp)
 	retCode := m.Run()
+	MyTeardown()
+
+	glru := gl.New(10)
+	tieredCacheGoogle := glTier{cache: glru}
+	MyInit(tieredCacheGoogle)
+	retCode = m.Run()
 	MyTeardown()
 	os.Exit(retCode)
 }
@@ -22,55 +58,47 @@ type dummySource struct {
 	list map[int]string
 }
 
-func (d dummySource) Get(k interface{}) (interface{}, bool) {
+func (d dummySource) Get(k Key) (interface{}, bool) {
 	time.Sleep(5 * time.Millisecond)
 
 	return d.list[k.(int)], true
 }
-func (d dummySource) Add(k, v interface{}) bool {
+func (d dummySource) Add(k Key, v interface{}) {
 	time.Sleep(5 * time.Millisecond)
 	d.list[k.(int)] = v.(string)
-	return true
 }
 
-var d dummySource
-var c Cache
-var tiered Cache
+var dummybackend0 dummySource
+var dummycache0 Cache
+var tieredbackend1 BackendCache
+var tieredcache1 Cache
 
-func MyInit() {
+func MyInit(backend BackendCache) {
 	rand.Seed(time.Now().UnixNano())
-	d = dummySource{}
-	d.list = make(map[int]string, 0)
-	c = Cache{
-		cache: d,
+	dummybackend0 = dummySource{}
+	dummybackend0.list = make(map[int]string, 0)
+	dummycache0 = Cache{
+		cache: &dummybackend0,
 		next:  nil,
 	}
-
-	lru, err := lru.New(10)
-	if err != nil {
-		panic("LRU error")
+	tieredbackend1 = backend
+	tieredcache1 = Cache{
+		cache: backend,
+		next:  &dummycache0,
 	}
-	tiered = Cache{
-		cache: lru,
-		next:  &c,
-	}
-	c.Initialize(300)
-	tiered.Initialize(300)
+	dummycache0.Initialize(300)
+	tieredcache1.Initialize(300)
 }
 
 func MyTeardown() {
-	c.Finalize()
-	tiered.Finalize()
+	dummycache0.Finalize()
+	tieredcache1.Finalize()
 }
 
 func TestFinalize(t *testing.T) {
-	lru, err := lru.New(10)
-	if err != nil {
-		panic("LRU error")
-	}
 	cache := Cache{
-		cache: lru,
-		next:  &c,
+		cache: tieredbackend1,
+		next:  &dummycache0,
 	}
 	cache.Initialize(100)
 	for i := 0; i < 100; i++ {
@@ -87,8 +115,8 @@ func TestFinalize(t *testing.T) {
 
 // Simple Set and Get
 func TestCache(t *testing.T) {
-	c.SetWriteBack(100, "test")
-	value := c.Get(100)
+	dummycache0.SetWriteBack(100, "test")
+	value := dummycache0.Get(100)
 	if value != "test" {
 		t.Error(value)
 	}
@@ -96,13 +124,13 @@ func TestCache(t *testing.T) {
 
 // Tiered, Set and Get
 func TestTieredCache(t *testing.T) {
-	value := tiered.Get(100)
+	value := tieredcache1.Get(100)
 	if value != "test" {
 		t.Error(value)
 	}
-	tiered.SetWriteThrough(100, "test")
+	tieredcache1.SetWriteThrough(100, "test")
 
-	value = tiered.Get(100)
+	value = tieredcache1.Get(100)
 	if value != "test" {
 		t.Error(value)
 	}
@@ -110,11 +138,11 @@ func TestTieredCache(t *testing.T) {
 
 func TestConcurrentUpdate(t *testing.T) {
 	for i := 0; i < 350; i++ {
-		tiered.SetWriteBack(100, "writeback")
+		tieredcache1.SetWriteBack(100, "writeback")
 	}
-	tiered.SetWriteThrough(100, "writethrough")
-	value1 := c.Get(100)
-	value2 := tiered.Get(100)
+	tieredcache1.SetWriteThrough(100, "writethrough")
+	value1 := dummycache0.Get(100)
+	value2 := tieredcache1.Get(100)
 	if value1 != value2 {
 		t.Error(value1, value2)
 	}
@@ -122,11 +150,11 @@ func TestConcurrentUpdate(t *testing.T) {
 
 func TestSync(t *testing.T) {
 	for i := 0; i < 349; i++ {
-		tiered.SetWriteBack(i, "writeback")
+		tieredcache1.SetWriteBack(i, "writeback")
 	}
-	tiered.Sync()
-	value1 := c.Get(300)
-	value2 := tiered.Get(300)
+	tieredcache1.Sync()
+	value1 := dummycache0.Get(300)
+	value2 := tieredcache1.Get(300)
 	if value1 != value2 {
 		t.Error(value1, value2)
 	}
@@ -135,21 +163,21 @@ func TestSync(t *testing.T) {
 func BenchmarkCacheGet(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		r := rand.Intn(5)
-		c.Get(r)
+		dummycache0.Get(r)
 	}
 }
 
 func BenchmarkCacheSetWriteBack(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		r := rand.Intn(5)
-		c.SetWriteBack(r, "benchmarking")
+		dummycache0.SetWriteBack(r, "benchmarking")
 	}
 }
 
 func BenchmarkCacheSetWriteThrough(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		r := rand.Intn(5)
-		c.SetWriteThrough(r, "benchmarking")
+		dummycache0.SetWriteThrough(r, "benchmarking")
 	}
 }
 
@@ -157,20 +185,20 @@ func BenchmarkCacheSetWriteThrough(b *testing.B) {
 func BenchmarkTieredCacheGet(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		r := rand.Intn(5)
-		tiered.Get(r)
+		tieredcache1.Get(r)
 	}
 }
 
 func BenchmarkTieredCacheSetWriteBack(b *testing.B) {
 	for i := 0; i < 100; i++ {
 		r := rand.Intn(5)
-		tiered.SetWriteBack(r, "benchmarking")
+		tieredcache1.SetWriteBack(r, "benchmarking")
 	}
 }
 
 func BenchmarkTieredCacheSetWriteThrough(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		r := rand.Intn(5)
-		tiered.SetWriteThrough(r, "benchmarking")
+		tieredcache1.SetWriteThrough(r, "benchmarking")
 	}
 }

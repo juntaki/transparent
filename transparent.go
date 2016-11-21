@@ -3,37 +3,42 @@ package transparent
 
 import "time"
 
+// Key is comparable value
+type Key interface{}
+
 // BackendCache supposes to be on-memory cache like LRU, or database, etc..
 type BackendCache interface {
-	Get(key interface{}) (interface{}, bool)
-	Add(key interface{}, value interface{}) bool // Add key-value to cache
+	Get(key Key) (interface{}, bool)
+	Add(key Key, value interface{})
 }
 
-// Consider the following case
-// [Backend cache] -> [Next cache] -> [Source]
-//                                    ^
-// [Another cache] ------------------/
+//  [Application]
+//    |
+//    v Get/Set
+//  [Transparent cache] -[Flush buffer]-> [Next cache]
+//   `-[Backend cache]                     `-[Source cache]
+//      `-[LRU]                               `-[S3]
 
 // Cache is transparent interface to its backend cache
-// Cache itself have CacheOps interface
+// You can stack Cache for tiring
 type Cache struct {
-	cache  BackendCache
-	next   *Cache
-	log    chan keyValue
-	sync   chan bool
+	cache  BackendCache  // Target cache
+	next   *Cache        // Next should be more stable but slow
+	log    chan keyValue // Channel buffer
+	sync   chan bool     // Control for flush buffer
 	synced chan bool
 	done   chan bool
 }
 
-// Async log writer use this struct in its channel
+// Flush buffer use this struct in its log channel
 type keyValue struct {
 	key   interface{}
 	value interface{}
 }
 
-// Initialize start goroutine for asynchronously set value
-func (c *Cache) Initialize(size int) {
-	c.log = make(chan keyValue, size)
+// Initialize start flush buffer goroutine for asynchronously set value
+func (c *Cache) Initialize(bufferSize int) {
+	c.log = make(chan keyValue, bufferSize)
 	c.done = make(chan bool, 1)
 	c.sync = make(chan bool, 1)
 	c.synced = make(chan bool, 1)
@@ -41,44 +46,46 @@ func (c *Cache) Initialize(size int) {
 	go c.flush()
 }
 
+// Flush buffer
 func (c *Cache) flush() {
-	log := make(map[interface{}]interface{})
+	buffer := make(map[interface{}]interface{})
 	done := false
-	for { // infinite loop
+	for { // main loop
 	dedup:
-		for { // loop for dedup request
+		for { // dedup request
 			select {
 			case kv, ok := <-c.log:
-				// dedup the same key request
 				if !ok {
 					// channel is closed by Finalize
 					done = true
 					break dedup
 				}
-				log[kv.key] = kv.value
+				buffer[kv.key] = kv.value
 
 				// Too much keys cached
-				if len(log) > 5 {
+				if len(buffer) > 5 {
 					break dedup
 				}
 			case <-c.sync:
 				// Flush current buffer
-				for k, v := range log {
+				for k, v := range buffer {
 					c.next.SetWriteBack(k, v)
 				}
-				// Flush value in channel
-				// Switch to new channel for current writer
+				buffer = make(map[interface{}]interface{})
+
+				// Flush value in channel buffer
+				//  Switch to new channel for current writer
 				old := *c
 				c.log = make(chan keyValue, len(c.log))
 
-				// Finalize old log
+				//  partially finalize old log for flushing
 				close(old.log)
 				old.flush()
+				<-old.done
 
 				// Next, recursively
 				if old.next != nil {
-					old.next.sync <- true
-					<-old.next.synced
+					old.next.Sync()
 				}
 
 				c.synced <- true
@@ -87,16 +94,17 @@ func (c *Cache) flush() {
 				break dedup
 			}
 		}
-		// flush value
-		for k, v := range log {
+		// Flush bufferd value
+		for k, v := range buffer {
 			c.next.SetWriteBack(k, v)
 		}
+		// Finalize
 		if done {
 			c.done <- true
 			return
 		}
-		// reset
-		log = make(map[interface{}]interface{})
+		// Reset buffer
+		buffer = make(map[interface{}]interface{})
 	}
 }
 
@@ -111,7 +119,7 @@ func (c *Cache) Get(key interface{}) interface{} {
 	// Try to get backend cache
 	value, found := c.cache.Get(key)
 	if !found {
-		// Recursively get value from source.
+		// Recursively get value from list.
 		value := c.next.Get(key)
 		c.SetWriteBack(key, value)
 		return value
@@ -121,31 +129,21 @@ func (c *Cache) Get(key interface{}) interface{} {
 
 // SetWriteBack new value to Backend cache.
 func (c *Cache) SetWriteBack(key interface{}, value interface{}) {
-	c.setValue(key, value, false)
-}
-
-// SetWriteThrough set the value to Backend cache, Next cache, and Source
-func (c *Cache) SetWriteThrough(key interface{}, value interface{}) {
-	c.setValue(key, value, true)
-}
-
-func (c *Cache) setValue(key interface{}, value interface{}, sync bool) {
 	c.cache.Add(key, value)
-
 	if c.next == nil {
-		// This backend is final destination
+		// This backend cache is final destination
 		return
 	}
-
-	// set value recursively
-	if sync {
-		c.log <- keyValue{key, value}
-		c.next.SetWriteThrough(key, value)
-	} else {
-		c.log <- keyValue{key, value}
-	}
+	// Queue to flush
+	c.log <- keyValue{key, value}
 
 	return
+}
+
+// SetWriteThrough set the value and sync
+func (c *Cache) SetWriteThrough(key interface{}, value interface{}) {
+	c.SetWriteBack(key, value)
+	c.Sync()
 }
 
 // Sync current buffered value
