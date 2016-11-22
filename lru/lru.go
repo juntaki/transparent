@@ -1,30 +1,28 @@
 // Package lru is simple and fast, for single thread.
 package lru
 
-import "github.com/juntaki/transparent"
-
 // Cache is compatible LRU for transparent.BackendCache
 type Cache struct {
-	hash        map[transparent.Key]*keyValue
-	listHead    *keyValue
-	currentSize int
-	limitSize   int
+	hash           map[interface{}]*keyValue
+	listHead       *keyValue
+	currentEntries int
+	maxEntries     int
 }
 
 type keyValue struct {
-	key   transparent.Key
+	key   interface{}
 	value interface{}
 	prev  *keyValue
 	next  *keyValue
 }
 
 // New returns empty LRU Cache
-func New(size int) *Cache {
+func New(maxEntries int) *Cache {
 	c := &Cache{
-		hash:        make(map[transparent.Key]*keyValue),
-		currentSize: 0,
-		limitSize:   size,
-		listHead:    &keyValue{},
+		hash:           make(map[interface{}]*keyValue),
+		currentEntries: 0,
+		maxEntries:     maxEntries,
+		listHead:       &keyValue{},
 	}
 
 	c.listHead.next = c.listHead
@@ -33,7 +31,7 @@ func New(size int) *Cache {
 }
 
 // Get value from cache if exist
-func (c *Cache) Get(key transparent.Key) (interface{}, bool) {
+func (c *Cache) Get(key interface{}) (value interface{}, found bool) {
 	if kv, ok := c.hash[key]; ok {
 		if kv != c.listHead.next {
 			listRemove(kv)
@@ -45,7 +43,7 @@ func (c *Cache) Get(key transparent.Key) (interface{}, bool) {
 }
 
 // Add value to cache
-func (c *Cache) Add(key transparent.Key, value interface{}) {
+func (c *Cache) Add(key interface{}, value interface{}) {
 	if kv, ok := c.hash[key]; ok {
 		if kv != c.listHead.next {
 			listRemove(kv)
@@ -53,8 +51,8 @@ func (c *Cache) Add(key transparent.Key, value interface{}) {
 		}
 		kv.value = value
 	} else {
-		if c.limitSize != c.currentSize {
-			c.currentSize++
+		if c.maxEntries != c.currentEntries {
+			c.currentEntries++
 		} else {
 			lastItem := c.listHead.prev
 			delete(c.hash, lastItem)

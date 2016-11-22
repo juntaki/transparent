@@ -10,7 +10,6 @@ import (
 	tl "./lru"
 	gl "github.com/golang/groupcache/lru"
 	hl "github.com/hashicorp/golang-lru"
-	"github.com/juntaki/transparent"
 )
 
 // Define tiered cache
@@ -18,10 +17,10 @@ type hlTier struct {
 	cache *hl.Cache
 }
 
-func (d hlTier) Get(k transparent.Key) (interface{}, bool) {
+func (d hlTier) Get(k interface{}) (interface{}, bool) {
 	return d.cache.Get(k)
 }
-func (d hlTier) Add(k transparent.Key, v interface{}) {
+func (d hlTier) Add(k interface{}, v interface{}) {
 	d.cache.Add(k, v)
 }
 
@@ -29,10 +28,10 @@ type glTier struct {
 	cache *gl.Cache
 }
 
-func (d glTier) Get(k transparent.Key) (interface{}, bool) {
+func (d glTier) Get(k interface{}) (interface{}, bool) {
 	return d.cache.Get(k)
 }
-func (d glTier) Add(k transparent.Key, v interface{}) {
+func (d glTier) Add(k interface{}, v interface{}) {
 	d.cache.Add(k, v)
 }
 
@@ -64,12 +63,12 @@ type dummySource struct {
 	list map[int]string
 }
 
-func (d dummySource) Get(k transparent.Key) (interface{}, bool) {
+func (d dummySource) Get(k interface{}) (interface{}, bool) {
 	time.Sleep(5 * time.Millisecond)
 
 	return d.list[k.(int)], true
 }
-func (d dummySource) Add(k transparent.Key, v interface{}) {
+func (d dummySource) Add(k interface{}, v interface{}) {
 	time.Sleep(5 * time.Millisecond)
 	d.list[k.(int)] = v.(string)
 }

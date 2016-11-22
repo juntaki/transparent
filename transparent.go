@@ -10,17 +10,12 @@ package transparent
 
 import (
 	"time"
-
-	"github.com/juntaki/transparent"
 )
-
-// Key is comparable value
-type Key interface{}
 
 // BackendCache supposes to be on-memory cache like LRU, or database, etc..
 type BackendCache interface {
-	Get(key transparent.Key) (interface{}, bool)
-	Add(key transparent.Key, value interface{})
+	Get(key interface{}) (interface{}, bool)
+	Add(key interface{}, value interface{})
 }
 
 // Cache is transparent interface to its backend cache
@@ -36,7 +31,7 @@ type Cache struct {
 
 // Flush buffer use this struct in its log channel
 type keyValue struct {
-	key   Key
+	key   interface{}
 	value interface{}
 }
 
@@ -64,7 +59,7 @@ func (c *Cache) Finalize() {
 
 // Flush buffer
 func (c *Cache) flush() {
-	buffer := make(map[Key]interface{})
+	buffer := make(map[interface{}]interface{})
 	done := false
 	for { // main loop
 	dedup:
@@ -87,7 +82,7 @@ func (c *Cache) flush() {
 				for k, v := range buffer {
 					c.next.SetWriteBack(k, v)
 				}
-				buffer = make(map[Key]interface{})
+				buffer = make(map[interface{}]interface{})
 
 				// Flush value in channel buffer
 				//  Switch to new channel for current writer
@@ -120,7 +115,7 @@ func (c *Cache) flush() {
 			return
 		}
 		// Reset buffer
-		buffer = make(map[Key]interface{})
+		buffer = make(map[interface{}]interface{})
 	}
 }
 
