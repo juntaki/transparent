@@ -18,14 +18,14 @@ import (
 	"time"
 )
 
-// BackendCache defines the interface that TC's backend data storage destination should have.
+// BackendCache defines the interface that TransparentCache's backend data storage destination should have.
 // Both Get and Add should not be failed.
 type BackendCache interface {
 	Get(key interface{}) (value interface{}, found bool)
 	Add(key interface{}, value interface{})
 }
 
-// Cache provides operation of TC
+// Cache provides operation of TransparentCache
 type Cache struct {
 	cache  BackendCache  // Target cache
 	next   *Cache        // Next should be more stable but slow
