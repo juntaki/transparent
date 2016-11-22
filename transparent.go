@@ -19,7 +19,7 @@ import (
 )
 
 // BackendCache defines the interface that TransparentCache's backend data storage destination should have.
-// Both Get and Add should not be failed.
+// Add should not be failed.
 type BackendCache interface {
 	Get(key interface{}) (value interface{}, found bool)
 	Add(key interface{}, value interface{})

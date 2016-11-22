@@ -1,4 +1,5 @@
-// Package lru is simple and fast, for single thread.
+// Package lru is simple and fast LRU implementation, for single thread.
+// Cache is compatible LRU for transparent.BackendCache
 package lru
 
 // Cache is compatible LRU for transparent.BackendCache
