@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	tl "./lru"
 	gl "github.com/golang/groupcache/lru"
 	hl "github.com/hashicorp/golang-lru"
+	tl "github.com/juntaki/transparent/lru"
 )
 
 // Define tiered cache
