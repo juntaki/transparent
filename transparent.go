@@ -1,4 +1,10 @@
-// Package transparent implements transparent cache operation.
+// Package transparent A transparent package is a library that provides
+// transparent caching operations for key-value stores. As shown in the figure
+// below, it is possible to use relatively fast cache like LRU and slow
+// and reliable storage like S3 via TransparentCache.
+// Transparent Cache is tearable. In addition to caching, it is also possible to
+// transparently use a layer of synchronization between distributed systems.
+// See subpackage for example.
 //
 //  [Application]
 //    |
@@ -12,14 +18,14 @@ import (
 	"time"
 )
 
-// BackendCache supposes to be on-memory cache like LRU, or database, etc..
+// BackendCache defines the interface that TC's backend data storage destination should have.
+// Both Get and Add should not be failed.
 type BackendCache interface {
-	Get(key interface{}) (interface{}, bool)
+	Get(key interface{}) (value interface{}, found bool)
 	Add(key interface{}, value interface{})
 }
 
-// Cache is transparent interface to its backend cache
-// You can stack Cache
+// Cache provides operation of TC
 type Cache struct {
 	cache  BackendCache  // Target cache
 	next   *Cache        // Next should be more stable but slow
@@ -35,7 +41,11 @@ type keyValue struct {
 	value interface{}
 }
 
+// New returns Cache, you can set nil to next, if it's Source.
 func New(cache BackendCache, next *Cache, bufferSize int) *Cache {
+	if cache == nil {
+		return nil
+	}
 	return &Cache{
 		cache:  cache,
 		next:   next,
@@ -46,18 +56,18 @@ func New(cache BackendCache, next *Cache, bufferSize int) *Cache {
 	}
 }
 
-// Initialize start flush buffer goroutine for asynchronously set value
+// Initialize starts flusher
 func (c *Cache) Initialize() {
 	go c.flush()
 }
 
-// Finalize stops goroutine
+// Finalize stops flusher
 func (c *Cache) Finalize() {
 	close(c.log)
 	<-c.done
 }
 
-// Flush buffer
+// flusher
 func (c *Cache) flush() {
 	buffer := make(map[interface{}]interface{})
 	done := false
@@ -119,8 +129,8 @@ func (c *Cache) flush() {
 	}
 }
 
-// Get value from cache, or if not found, from source.
-func (c *Cache) Get(key interface{}) interface{} {
+// Get value from cache, or if not found, recursively get.
+func (c *Cache) Get(key interface{}) (value interface{}) {
 	// Try to get backend cache
 	value, found := c.cache.Get(key)
 	if !found {
@@ -132,7 +142,7 @@ func (c *Cache) Get(key interface{}) interface{} {
 	return value
 }
 
-// SetWriteBack new value to Backend cache.
+// SetWriteBack set new value to BackendCache.
 func (c *Cache) SetWriteBack(key interface{}, value interface{}) {
 	c.cache.Add(key, value)
 	if c.next == nil {
@@ -145,7 +155,7 @@ func (c *Cache) SetWriteBack(key interface{}, value interface{}) {
 	return
 }
 
-// SetWriteThrough set the value and sync
+// SetWriteThrough set the value to BackendCache and sync Source.
 func (c *Cache) SetWriteThrough(key interface{}, value interface{}) {
 	c.SetWriteBack(key, value)
 	c.Sync()
