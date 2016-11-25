@@ -69,6 +69,14 @@ func (c *Cache) Add(key interface{}, value interface{}) {
 	}
 }
 
+// Remove
+func (c *Cache) Remove(key interface{}) {
+	if kv, ok := c.hash[key]; ok {
+		delete(c.hash, kv)
+		listRemove(kv)
+	}
+}
+
 func listRemove(kv *keyValue) {
 	kv.prev.next = kv.next
 	kv.next.prev = kv.prev
