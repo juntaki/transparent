@@ -51,10 +51,12 @@ func TestSrc(t *testing.T) {
 	if value != "test" {
 		t.Error(value)
 	}
+	dummySrc.Remove(100)
 }
 
 // Tiered, Set and Get
 func TestCache(t *testing.T) {
+	dummySrc.Set(100, "test")
 	value := dummyCache.Get(100)
 	if value != "test" {
 		t.Error(value)
