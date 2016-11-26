@@ -62,76 +62,80 @@ func (c *Cache) StopFlusher() {
 	<-c.done
 }
 
+type buffer struct {
+	queue map[interface{}]operation
+	c     *Cache
+	limit int
+}
+
+func (b *buffer) reset() {
+	b.queue = make(map[interface{}]operation)
+}
+
+func (b *buffer) add(l *log) {
+	b.queue[l.key] = operation{l.value, l.message}
+}
+
+func (b *buffer) checkLimit() {
+	if len(b.queue) > b.limit {
+		b.flush()
+	}
+}
+
+func (b *buffer) flush() {
+	for k, o := range b.queue {
+		switch o.message {
+		case remove:
+			b.c.lower.Remove(k)
+		case set:
+			b.c.lower.Set(k, o.value)
+		}
+	}
+	b.reset()
+}
+
 // Flusher
 func (c *Cache) flusher() {
-	buffer := make(map[interface{}]operation)
-	done := false
+	b := buffer{c: c, limit: 5}
+	b.reset()
+done:
 	for { // main loop
-	dedup:
-		for { // dedup request
-			select {
-			case kv, ok := <-c.log:
-				if !ok {
-					// channel is closed by StopFlusher
-					done = true
-					break dedup
-				}
-				buffer[kv.key] = operation{kv.value, kv.message}
-
-				// Too much keys cached
-				if len(buffer) > 5 {
-					break dedup
-				}
-			case <-c.sync:
-				// Flush current buffer
-				for k, v := range buffer {
-					switch v.message {
-					case remove:
-						c.lower.Remove(k)
-					case set:
-						c.lower.Set(k, v.value)
-					}
-				}
-				buffer = make(map[interface{}]operation)
-
-				// Flush value in channel buffer
-				//  Switch to new channel for current writer
-				old := *c
-				c.log = make(chan log, len(c.log))
-
-				//  partially finalize old log for flushing
-				close(old.log)
-				old.flusher()
-				<-old.done
-
-				// Lower, recursively
-				if old.lower != nil {
-					old.lower.Sync()
-				}
-
-				c.synced <- true
-			case <-time.After(time.Second * 1):
-				// Flush if silent for one sec
-				break dedup
+		select {
+		case l, ok := <-c.log:
+			if !ok {
+				// channel is closed by StopFlusher
+				break done
 			}
-		}
-		// Flush bufferd value
-		for k, v := range buffer {
-			switch v.message {
-			case remove:
-				c.lower.Remove(k)
-			case set:
-				c.lower.Set(k, v.value)
+			b.add(&l)
+			b.checkLimit()
+		case <-c.sync:
+			// Flush current buffer
+			b.flush()
+
+			// Flush value in channel buffer
+			// Switch to new channel for current writer
+			old := *c
+			c.log = make(chan log, len(c.log))
+
+			// Close old log for flushing
+			close(old.log)
+			old.flusher()
+			<-old.done
+
+			// Lower, recursively
+			if old.lower != nil {
+				old.lower.Sync()
 			}
+			c.synced <- true
+		case <-time.After(time.Second * 1):
+			// Flush if silent for one sec
+			b.flush()
 		}
-		// StopFlusher
-		if done {
-			c.done <- true
-			return
-		}
-		// Reset buffer
-		buffer = make(map[interface{}]operation)
 	}
+	// Flush bufferd value
+	b.flush()
+	c.done <- true
+	return
 }
 
 // Get value from cache, or if not found, recursively get.
