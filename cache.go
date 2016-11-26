@@ -13,28 +13,38 @@ type BackendCache interface {
 
 // Cache provides operation of TransparentCache
 type Cache struct {
+	*stacker
 	BackendCache BackendCache // Target cache
-	listHead     listHead
-	log          chan keyValue // Channel buffer
-	sync         chan bool     // Control for flush buffer
+	log          chan log     // Channel buffer
+	sync         chan bool    // Control for flush buffer
 	synced       chan bool
 	done         chan bool
 }
 
+type message int
+
+const (
+	set message = iota
+	remove
+)
+
 // Flush buffer use this struct in its log channel
-type keyValue struct {
-	key   interface{}
-	value interface{}
+type log struct {
+	key     interface{}
+	value   interface{}
+	message message
 }
 
 // New returns Cache layer.
 func New(bufferSize int) *Cache {
-	return &Cache{
-		log:    make(chan keyValue, bufferSize),
+	c := &Cache{
+		log:    make(chan log, bufferSize),
 		done:   make(chan bool, 1),
 		sync:   make(chan bool, 1),
 		synced: make(chan bool, 1),
 	}
+	c.stacker = &stacker{this: c}
+	return c
 }
 
 // StartFlusher starts flusher
@@ -50,7 +60,12 @@ func (c *Cache) StopFlusher() {
 
 // Flusher
 func (c *Cache) flusher() {
-	buffer := make(map[interface{}]interface{})
+	type value struct {
+		value   interface{}
+		message message
+	}
+
+	buffer := make(map[interface{}]value)
 	done := false
 	for { // main loop
 	dedup:
@@ -62,7 +77,7 @@ func (c *Cache) flusher() {
 					done = true
 					break dedup
 				}
-				buffer[kv.key] = kv.value
+				buffer[kv.key] = value{kv.value, kv.message}
 
 				// Too much keys cached
 				if len(buffer) > 5 {
@@ -71,14 +86,19 @@ func (c *Cache) flusher() {
 			case <-c.sync:
 				// Flush current buffer
 				for k, v := range buffer {
-					c.listHead.lower.Set(k, v)
+					switch v.message {
+					case remove:
+						c.lower.Remove(k)
+					case set:
+						c.lower.Set(k, v.value)
+					}
 				}
-				buffer = make(map[interface{}]interface{})
+				buffer = make(map[interface{}]value)
 
 				// Flush value in channel buffer
 				//  Switch to new channel for current writer
 				old := *c
-				c.log = make(chan keyValue, len(c.log))
+				c.log = make(chan log, len(c.log))
 
 				//  partially finalize old log for flushing
 				close(old.log)
@@ -86,8 +106,8 @@ func (c *Cache) flusher() {
 				<-old.done
 
 				// Lower, recursively
-				if old.listHead.lower != nil {
-					old.listHead.lower.Sync()
+				if old.lower != nil {
+					old.lower.Sync()
 				}
 
 				c.synced <- true
@@ -98,7 +118,12 @@ func (c *Cache) flusher() {
 		}
 		// Flush bufferd value
 		for k, v := range buffer {
-			c.listHead.lower.Set(k, v)
+			switch v.message {
+			case remove:
+				c.lower.Remove(k)
+			case set:
+				c.lower.Set(k, v.value)
+			}
 		}
 		// StopFlusher
 		if done {
@@ -106,7 +131,7 @@ func (c *Cache) flusher() {
 			return
 		}
 		// Reset buffer
-		buffer = make(map[interface{}]interface{})
+		buffer = make(map[interface{}]value)
 	}
 }
 
@@ -116,7 +141,7 @@ func (c *Cache) Get(key interface{}) (value interface{}) {
 	value, found := c.BackendCache.Get(key)
 	if !found {
 		// Recursively get value from list.
-		value := c.listHead.lower.Get(key)
+		value := c.lower.Get(key)
 		c.Set(key, value)
 		return value
 	}
@@ -125,14 +150,16 @@ func (c *Cache) Get(key interface{}) (value interface{}) {
 
 // Set set new value to BackendCache.
 func (c *Cache) Set(key interface{}, value interface{}) {
+	if c.upper != nil {
+		c.SkimOff(key)
+	}
 	c.BackendCache.Add(key, value)
-	if c.listHead.lower == nil {
+	if c.lower == nil {
 		// This backend cache is final destination
 		return
 	}
 	// Queue to flush
-	c.log <- keyValue{key, value}
-
+	c.log <- log{key, value, set}
 	return
 }
 
@@ -142,17 +169,24 @@ func (c *Cache) Sync() {
 	<-c.synced
 }
 
-// Remove
+// SkimOff remove upper layer's old value
+func (c *Cache) SkimOff(key interface{}) {
+	c.BackendCache.Remove(key)
+	if c.upper == nil {
+		// This is top layer
+		return
+	}
+	c.upper.SkimOff(key)
+}
+
+// Remove recursively remove lower layer's value
 func (c *Cache) Remove(key interface{}) {
 	c.BackendCache.Remove(key)
-}
-
-// Stack
-func (c *Cache) Stack(l Layer) {
-	c.getListHead().upper = l
-	l.getListHead().lower = c
-}
-
-func (c *Cache) getListHead() *listHead {
-	return &c.listHead
+	if c.lower == nil {
+		// This is bottom layer
+		return
+	}
+	// Queue to flush
+	c.log <- log{key, nil, remove}
+	return
 }

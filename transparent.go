@@ -18,12 +18,34 @@ type Layer interface {
 	Set(key interface{}, value interface{})
 	Get(key interface{}) (value interface{})
 	Remove(key interface{})
+	SkimOff(key interface{})
 	Sync()
-	Stack(Layer)
-	getListHead() *listHead
 }
 
-type listHead struct {
+type stackable interface {
+	setUpper(Layer)
+	getLayer() Layer
+	setLower(Layer)
+}
+
+// stacker implements stackable interface
+type stacker struct {
 	upper Layer
+	this  Layer
 	lower Layer
+}
+
+func (s *stacker) setUpper(l Layer) {
+	s.upper = l
+}
+func (s *stacker) getLayer() Layer {
+	return s.this
+}
+func (s *stacker) setLower(l Layer) {
+	s.lower = l
+}
+
+func (s *stacker) Stack(upper stackable) {
+	s.setUpper(upper.getLayer())
+	upper.setLower(s.getLayer())
 }
