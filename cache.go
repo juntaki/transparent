@@ -30,7 +30,11 @@ const (
 
 // Flush buffer use this struct in its log channel
 type log struct {
-	key     interface{}
+	key interface{}
+	*operation
+}
+
+type operation struct {
 	value   interface{}
 	message message
 }
@@ -60,12 +64,7 @@ func (c *Cache) StopFlusher() {
 
 // Flusher
 func (c *Cache) flusher() {
-	type value struct {
-		value   interface{}
-		message message
-	}
-
-	buffer := make(map[interface{}]value)
+	buffer := make(map[interface{}]operation)
 	done := false
 	for { // main loop
 	dedup:
@@ -77,7 +76,7 @@ func (c *Cache) flusher() {
 					done = true
 					break dedup
 				}
-				buffer[kv.key] = value{kv.value, kv.message}
+				buffer[kv.key] = operation{kv.value, kv.message}
 
 				// Too much keys cached
 				if len(buffer) > 5 {
@@ -93,7 +92,7 @@ func (c *Cache) flusher() {
 						c.lower.Set(k, v.value)
 					}
 				}
-				buffer = make(map[interface{}]value)
+				buffer = make(map[interface{}]operation)
 
 				// Flush value in channel buffer
 				//  Switch to new channel for current writer
@@ -131,7 +130,7 @@ func (c *Cache) flusher() {
 			return
 		}
 		// Reset buffer
-		buffer = make(map[interface{}]value)
+		buffer = make(map[interface{}]operation)
 	}
 }
 
@@ -159,7 +158,7 @@ func (c *Cache) Set(key interface{}, value interface{}) {
 		return
 	}
 	// Queue to flush
-	c.log <- log{key, value, set}
+	c.log <- log{key, &operation{value: value, message: set}}
 	return
 }
 
@@ -187,6 +186,6 @@ func (c *Cache) Remove(key interface{}) {
 		return
 	}
 	// Queue to flush
-	c.log <- log{key, nil, remove}
+	c.log <- log{key, &operation{nil, remove}}
 	return
 }
