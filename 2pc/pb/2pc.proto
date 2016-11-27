@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package twopc;
+
+service Cluster {
+  rpc Connection(stream Message) returns (stream Message){}
+  rpc Set(SetRequest) returns (EmptyMessage){}
+}
+
+enum messageType {
+  VoteRequest   = 0;
+  VoteCommit    = 1;
+  VoteAbort     = 2;
+  GlobalCommit  = 3;
+  GlobalAbort   = 4;
+  GlobalRequest = 5;
+  ACK           = 6;
+}
+
+enum requestType {
+  Get   = 0;
+  Set   = 1;
+}
+
+message Message {
+  uint64 ClientID = 1;
+  messageType messageType = 2;
+  uint64 requestID  = 3;
+  // Substantial request
+  requestType requestType = 4;
+  bytes key = 5;
+  bytes value = 6;
+}
+
+message EmptyMessage {
+}
+
+message SetRequest {
+  requestType requestType = 1;
+  bytes key = 2;
+  bytes value = 3;
+}
