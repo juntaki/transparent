@@ -6,6 +6,7 @@ import (
 )
 
 func TestServer(t *testing.T) {
+	DebugLevel = 5
 	c := Coodinator{}
 	go c.StartServ(1000)
 
@@ -17,12 +18,6 @@ func TestServer(t *testing.T) {
 	go a3.StartClient(1000)
 
 	time.Sleep(5 * time.Second)
-	a.Set()
-	a.Set()
-	a.Set()
-	a.Set()
-	a.Set()
-	a.Set()
 	a.Set()
 	a.Set()
 	time.Sleep(5 * time.Second)

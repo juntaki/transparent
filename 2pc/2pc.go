@@ -14,10 +14,14 @@ import (
 	pb "github.com/juntaki/transparent/2pc/pb"
 )
 
-var debug int
+var DebugLevel int
+
+func init() {
+	DebugLevel = 0
+}
 
 func debugPrintln(level int, a ...interface{}) (n int, err error) {
-	if debug >= level {
+	if DebugLevel >= level {
 		return fmt.Println(a)
 	}
 	return 0, nil
@@ -30,6 +34,22 @@ type request struct {
 }
 
 type state int
+
+func (s state) String() string {
+	switch s {
+	case stateInit:
+		return "Init"
+	case stateWait:
+		return "Wait"
+	case stateReady:
+		return "Ready"
+	case stateAbort:
+		return "Abort"
+	case stateCommit:
+		return "Commit"
+	}
+	panic("Unknown value")
+}
 
 const (
 	stateInit  state = iota + 1
@@ -55,11 +75,11 @@ type Coodinator struct {
 
 // StartServ Starts cluster coodinator
 func (c *Coodinator) StartServ(timeoutMillisecond time.Duration) {
-	debug = 1
 	c.timeout = timeoutMillisecond
 	c.in = make(chan *pb.Message, 1)
 	c.out = make(map[uint64]chan *pb.Message)
 	c.request = make(chan *pb.SetRequest, 10)
+	c.status = stateInit
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 8080))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
@@ -193,7 +213,7 @@ func (c *Coodinator) WaitACK() (ok bool) {
 				break
 			}
 			c.ack[v.ClientID] = v
-			debugPrintln(5, len(c.out), len(c.ack))
+			debugPrintln(5, "ack total", len(c.out), "current", len(c.ack))
 			if len(c.out) == len(c.ack) {
 				return
 			}
@@ -229,7 +249,7 @@ func (c *Coodinator) VoteRequest(r *pb.SetRequest) (commit bool) {
 				commit = false
 			}
 			c.summary[v.ClientID] = v
-			debugPrintln(5, len(c.out), len(c.summary))
+			debugPrintln(5, "vote total", len(c.out), "current", len(c.summary))
 			if len(c.out) == len(c.summary) {
 				return
 			}
@@ -267,7 +287,7 @@ func (a *Attendee) StartClient(timeoutMillisecond time.Duration) {
 
 	// Get ID from server
 	in, err := stream.Recv()
-	debugPrintln(5, "Client:Recv", in)
+	debugPrintln(5, "Client:Recv", a.clientID, in)
 	if err == io.EOF {
 		return
 	}
@@ -288,7 +308,7 @@ func (a *Attendee) StartClient(timeoutMillisecond time.Duration) {
 	go func(stream pb.Cluster_ConnectionClient, finish chan bool) {
 		for {
 			in, err := stream.Recv()
-			debugPrintln(5, "Client:Recv", in)
+			debugPrintln(5, "Client:Recv", a.clientID, in)
 			if err == io.EOF {
 				return
 			}
@@ -304,7 +324,7 @@ func (a *Attendee) StartClient(timeoutMillisecond time.Duration) {
 	go func(stream pb.Cluster_ConnectionClient, finish chan bool) {
 		for {
 			m := <-a.out
-			debugPrintln(5, "Client:Send", m)
+			debugPrintln(5, "Client:Send", a.clientID, m)
 			if err := stream.Send(m); err != nil {
 				break
 			}
@@ -331,7 +351,7 @@ func (a *Attendee) Run() {
 			switch m.MessageType {
 			case pb.MessageType_VoteRequest:
 				if a.status != stateInit {
-					debugPrintln(5, "Ignore VoteRequest", a.status)
+					debugPrintln(5, "Ignore VoteRequest", a.clientID, a.status)
 					// ignore
 					break
 				}
@@ -347,7 +367,7 @@ func (a *Attendee) Run() {
 			case pb.MessageType_GlobalCommit:
 				if a.status != stateReady ||
 					m.RequestID != a.current {
-					debugPrintln(5, "Ignore GlobalCommit", a.status, m.RequestID, a.current)
+					debugPrintln(5, "Ignore GlobalCommit", a.clientID, a.status, m.RequestID, a.current)
 					// ignore
 					break
 				}
@@ -357,7 +377,7 @@ func (a *Attendee) Run() {
 			case pb.MessageType_GlobalAbort:
 				if a.status != stateReady ||
 					m.RequestID != a.current {
-					debugPrintln(5, "Ignore GlobalAbort", a.status, m.RequestID, a.current)
+					debugPrintln(5, "Ignore GlobalAbort", a.clientID, a.status, m.RequestID, a.current)
 					// ignore
 					break
 				}
@@ -365,7 +385,7 @@ func (a *Attendee) Run() {
 				a.ACK(m)
 			}
 		case <-time.After(time.Millisecond * a.timeout):
-			debugPrintln(5, "Client:Timeout")
+			debugPrintln(5, "Client:Timeout", a.clientID)
 			if a.status == stateReady {
 				a.status = stateInit
 				a.current++
@@ -393,6 +413,7 @@ func (a *Attendee) VoteAbort(v *pb.Message) {
 }
 
 func (a *Attendee) Commit() {
+	debugPrintln(1, "ClientCommit", a.clientID, a.currentRequest)
 	// Set value
 }
 
