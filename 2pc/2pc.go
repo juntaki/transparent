@@ -16,6 +16,7 @@ import (
 	pb "github.com/juntaki/transparent/2pc/pb"
 )
 
+// DebugLevel determine the amount of debug output
 var DebugLevel int
 
 func init() {
@@ -50,7 +51,7 @@ func (s state) String() string {
 const (
 	stateInit  state = iota + 1
 	stateWait        // Coodinator only
-	stateReady       // Attendee only
+	stateReady       // Participant only
 	stateAbort
 	stateCommit
 )
@@ -84,11 +85,11 @@ func (c *Coodinator) StartServ(timeoutMillisecond time.Duration) {
 	grpcServer := grpc.NewServer()
 	pb.RegisterClusterServer(grpcServer, c)
 
-	go c.Run()
+	go c.run()
 	grpcServer.Serve(lis)
 }
 
-// SetRequest accepts request from any client
+// Set accepts request from any client
 func (c *Coodinator) Set(ctx context.Context, req *pb.SetRequest) (*pb.EmptyMessage, error) {
 	c.request <- req
 	return &pb.EmptyMessage{}, nil
@@ -149,26 +150,26 @@ func (c *Coodinator) Connection(stream pb.Cluster_ConnectionServer) error {
 	return nil
 }
 
-func (c *Coodinator) Run() {
+func (c *Coodinator) run() {
 	for {
-		c.Initialize()
+		c.initialize()
 		debugPrintln(1, "ServerStatus:", c.status)
 		select {
 		case r := <-c.request:
-			commit := c.VoteRequest(r)
+			commit := c.voteRequest(r)
 			debugPrintln(1, "ServerStatus:", c.status)
 			if commit {
-				c.GlobalCommit()
+				c.globalcommit()
 			} else {
-				c.GlobalAbort()
+				c.globalAbort()
 			}
 			debugPrintln(1, "ServerStatus:", c.status)
-			c.WaitACK()
+			c.waitsendACK()
 		}
 	}
 }
 
-func (c *Coodinator) Initialize() {
+func (c *Coodinator) initialize() {
 	c.status = stateInit
 	c.summary = make(map[uint64]*pb.Message)
 	c.ack = make(map[uint64]*pb.Message)
@@ -181,7 +182,7 @@ func (c *Coodinator) broadcast(m *pb.Message) {
 	}
 }
 
-func (c *Coodinator) GlobalCommit() {
+func (c *Coodinator) globalcommit() {
 	m := &pb.Message{
 		MessageType: pb.MessageType_GlobalCommit,
 		RequestID:   c.current,
@@ -190,7 +191,7 @@ func (c *Coodinator) GlobalCommit() {
 	c.broadcast(m)
 }
 
-func (c *Coodinator) GlobalAbort() {
+func (c *Coodinator) globalAbort() {
 	m := &pb.Message{
 		MessageType: pb.MessageType_GlobalAbort,
 		RequestID:   c.current,
@@ -199,7 +200,7 @@ func (c *Coodinator) GlobalAbort() {
 	c.broadcast(m)
 }
 
-func (c *Coodinator) WaitACK() (ok bool) {
+func (c *Coodinator) waitsendACK() (ok bool) {
 	ok = true
 	for {
 		select {
@@ -221,7 +222,7 @@ func (c *Coodinator) WaitACK() (ok bool) {
 	}
 }
 
-func (c *Coodinator) VoteRequest(r *pb.SetRequest) (commit bool) {
+func (c *Coodinator) voteRequest(r *pb.SetRequest) (commit bool) {
 	c.status = stateWait
 
 	message := &pb.Message{
@@ -255,7 +256,8 @@ func (c *Coodinator) VoteRequest(r *pb.SetRequest) (commit bool) {
 	}
 }
 
-type Attendee struct {
+// Participant manage its resource
+type Participant struct {
 	in             chan *pb.Message
 	out            chan *pb.Message
 	timeout        time.Duration
@@ -267,7 +269,8 @@ type Attendee struct {
 	commitfunc     func(key, value interface{})
 }
 
-func (a *Attendee) StartClient(
+// StartClient start participant service
+func (a *Participant) StartClient(
 	timeoutMillisecond time.Duration,
 	commitfunc func(key, value interface{}),
 ) {
@@ -331,7 +334,7 @@ func (a *Attendee) StartClient(
 		return
 	}(stream, recv)
 
-	go a.Run()
+	go a.run()
 	<-recv
 	<-send
 	stream.CloseSend()
@@ -342,7 +345,8 @@ type keyValue struct {
 	Value interface{}
 }
 
-func (a *Attendee) Set(key interface{}, value interface{}) {
+// Set execute setter
+func (a *Participant) Set(key interface{}, value interface{}) {
 	kv := &keyValue{
 		Key:   key,
 		Value: value,
@@ -356,7 +360,7 @@ func (a *Attendee) Set(key interface{}, value interface{}) {
 	a.client.Set(context.Background(), request)
 }
 
-func (a *Attendee) encode(kv *keyValue) (*pb.SetRequest, error) {
+func (a *Participant) encode(kv *keyValue) (*pb.SetRequest, error) {
 	buf := new(bytes.Buffer)
 	encoder := gob.NewEncoder(buf)
 	err := encoder.Encode(kv)
@@ -369,7 +373,7 @@ func (a *Attendee) encode(kv *keyValue) (*pb.SetRequest, error) {
 	return request, nil
 }
 
-func (a *Attendee) Commit() {
+func (a *Participant) commit() {
 	kv, err := a.decode(a.currentRequest.Payload)
 	if err != nil {
 		debugPrintln(1, "Decode error", err)
@@ -379,7 +383,7 @@ func (a *Attendee) Commit() {
 	a.commitfunc(kv.Key, kv.Value)
 }
 
-func (a *Attendee) decode(encoded []byte) (*keyValue, error) {
+func (a *Participant) decode(encoded []byte) (*keyValue, error) {
 	var kv keyValue
 	buf := bytes.NewBuffer(encoded)
 	encoder := gob.NewDecoder(buf)
@@ -390,7 +394,7 @@ func (a *Attendee) decode(encoded []byte) (*keyValue, error) {
 	return &kv, nil
 }
 
-func (a *Attendee) Run() {
+func (a *Participant) run() {
 	a.status = stateInit
 	for {
 		select {
@@ -405,31 +409,31 @@ func (a *Attendee) Run() {
 				if m.RequestID != a.current {
 					// attendee may miss the last request
 					a.status = stateAbort
-					a.VoteAbort(m.RequestID)
+					a.voteAbort(m.RequestID)
 					break
 				}
 				a.currentRequest = m
 				a.status = stateReady
-				a.VoteCommit(m.RequestID)
+				a.votecommit(m.RequestID)
 			case pb.MessageType_GlobalCommit:
 				if a.status != stateReady ||
 					m.RequestID != a.current {
-					debugPrintln(5, "Ignore GlobalCommit", a.clientID, a.status, m.RequestID, a.current)
+					debugPrintln(5, "Ignore globalCommit", a.clientID, a.status, m.RequestID, a.current)
 					// ignore
 					break
 				}
 				a.status = stateCommit
-				a.Commit()
-				a.ACK(m.RequestID)
+				a.commit()
+				a.sendACK(m.RequestID)
 			case pb.MessageType_GlobalAbort:
 				if a.status != stateReady ||
 					m.RequestID != a.current {
-					debugPrintln(5, "Ignore GlobalAbort", a.clientID, a.status, m.RequestID, a.current)
+					debugPrintln(5, "Ignore globalAbort", a.clientID, a.status, m.RequestID, a.current)
 					// ignore
 					break
 				}
 				a.status = stateAbort
-				a.ACK(m.RequestID)
+				a.sendACK(m.RequestID)
 			}
 		case <-time.After(time.Millisecond * a.timeout):
 			debugPrintln(5, "Client:Timeout", a.clientID)
@@ -441,7 +445,7 @@ func (a *Attendee) Run() {
 	}
 }
 
-func (a *Attendee) VoteCommit(requestID uint64) {
+func (a *Participant) votecommit(requestID uint64) {
 	a.out <- &pb.Message{
 		MessageType: pb.MessageType_VoteCommit,
 		Payload:     nil,
@@ -450,7 +454,7 @@ func (a *Attendee) VoteCommit(requestID uint64) {
 	}
 }
 
-func (a *Attendee) VoteAbort(requestID uint64) {
+func (a *Participant) voteAbort(requestID uint64) {
 	a.out <- &pb.Message{
 		MessageType: pb.MessageType_VoteAbort,
 		Payload:     nil,
@@ -459,7 +463,7 @@ func (a *Attendee) VoteAbort(requestID uint64) {
 	}
 }
 
-func (a *Attendee) ACK(requestID uint64) {
+func (a *Participant) sendACK(requestID uint64) {
 	a.out <- &pb.Message{
 		MessageType: pb.MessageType_ACK,
 		Payload:     nil,

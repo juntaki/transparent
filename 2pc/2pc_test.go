@@ -14,11 +14,11 @@ func TestServer(t *testing.T) {
 	commit := func(key, value interface{}) {
 		fmt.Println("key", key, "value", value)
 	}
-	a := Attendee{}
+	a := Participant{}
 	go a.StartClient(1000, commit)
-	a2 := Attendee{}
+	a2 := Participant{}
 	go a2.StartClient(1000, commit)
-	a3 := Attendee{}
+	a3 := Participant{}
 	go a3.StartClient(1000, commit)
 
 	time.Sleep(5 * time.Second)
@@ -33,7 +33,7 @@ func TestEncode(t *testing.T) {
 		Value: "testValue",
 	}
 
-	a := Attendee{}
+	a := Participant{}
 	req, err := a.encode(kv)
 	if err != nil {
 		t.Error(err)
