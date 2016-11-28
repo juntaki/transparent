@@ -154,7 +154,7 @@ func (c *Cache) Get(key interface{}) (value interface{}) {
 // Set set new value to BackendCache.
 func (c *Cache) Set(key interface{}, value interface{}) {
 	if c.upper != nil {
-		c.SkimOff(key)
+		c.Skim(key)
 	}
 	c.BackendCache.Add(key, value)
 	if c.lower == nil {
@@ -172,14 +172,14 @@ func (c *Cache) Sync() {
 	<-c.synced
 }
 
-// SkimOff remove upper layer's old value
-func (c *Cache) SkimOff(key interface{}) {
+// Skim remove upper layer's old value
+func (c *Cache) Skim(key interface{}) {
 	c.BackendCache.Remove(key)
 	if c.upper == nil {
 		// This is top layer
 		return
 	}
-	c.upper.SkimOff(key)
+	c.upper.Skim(key)
 }
 
 // Remove recursively remove lower layer's value

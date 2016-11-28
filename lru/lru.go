@@ -69,7 +69,7 @@ func (c *Cache) Add(key interface{}, value interface{}) {
 	}
 }
 
-// Remove
+// Remove value from cache
 func (c *Cache) Remove(key interface{}) {
 	if kv, ok := c.hash[key]; ok {
 		delete(c.hash, kv)

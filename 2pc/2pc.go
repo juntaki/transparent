@@ -71,6 +71,7 @@ type Coodinator struct {
 	current uint64
 }
 
+// NewCoodinator returns started Coodinator
 func NewCoodinator() *Coodinator {
 	c := &Coodinator{
 		timeout: 1000,

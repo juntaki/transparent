@@ -13,12 +13,12 @@
 //      `-[LRU]                               `-[S3]
 package transparent
 
-// Layer
+// Layer is stackable function
 type Layer interface {
 	Set(key interface{}, value interface{})
 	Get(key interface{}) (value interface{})
 	Remove(key interface{})
-	SkimOff(key interface{})
+	Skim(key interface{})
 	Sync()
 }
 
