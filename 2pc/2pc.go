@@ -1,3 +1,4 @@
+//Package twopc is two phase commit implements for key-value store
 package twopc
 
 import (
@@ -70,13 +71,22 @@ type Coodinator struct {
 	current uint64
 }
 
+func NewCoodinator() *Coodinator {
+	c := &Coodinator{
+		timeout: 1000,
+		in:      make(chan *pb.Message, 1),
+		out:     make(map[uint64]chan *pb.Message),
+		request: make(chan *pb.SetRequest, 10),
+		status:  stateInit,
+	}
+	started := make(chan bool)
+	go c.start(started)
+	<-started
+	return c
+}
+
 // StartServ Starts cluster coodinator
-func (c *Coodinator) StartServ(timeoutMillisecond time.Duration) {
-	c.timeout = timeoutMillisecond
-	c.in = make(chan *pb.Message, 1)
-	c.out = make(map[uint64]chan *pb.Message)
-	c.request = make(chan *pb.SetRequest, 10)
-	c.status = stateInit
+func (c *Coodinator) start(started chan bool) {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 8080))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
@@ -86,7 +96,13 @@ func (c *Coodinator) StartServ(timeoutMillisecond time.Duration) {
 	pb.RegisterClusterServer(grpcServer, c)
 
 	go c.run()
+	started <- true
 	grpcServer.Serve(lis)
+}
+
+// SetTimeout change timeout default is 1000 milliseconds
+func (c *Coodinator) SetTimeout(millisecond time.Duration) {
+	c.timeout = millisecond
 }
 
 // Set accepts request from any client
@@ -95,7 +111,7 @@ func (c *Coodinator) Set(ctx context.Context, req *pb.SetRequest) (*pb.EmptyMess
 	return &pb.EmptyMessage{}, nil
 }
 
-// Connection for each client
+// Connection start and keep connection for each client
 func (c *Coodinator) Connection(stream pb.Cluster_ConnectionServer) error {
 	// Assign clientID and tell current request ID
 	clientID := uint64(len(c.out))
@@ -256,6 +272,19 @@ func (c *Coodinator) voteRequest(r *pb.SetRequest) (commit bool) {
 	}
 }
 
+// NewParticipant returns started Participant
+func NewParticipant(commitfunc func(key, value interface{})) *Participant {
+	p := &Participant{
+		commitfunc: commitfunc,
+		timeout:    1000, //millisecond
+	}
+
+	started := make(chan bool)
+	go p.start(started)
+	<-started
+	return p
+}
+
 // Participant manage its resource
 type Participant struct {
 	in             chan *pb.Message
@@ -269,13 +298,13 @@ type Participant struct {
 	commitfunc     func(key, value interface{})
 }
 
-// StartClient start participant service
-func (a *Participant) StartClient(
-	timeoutMillisecond time.Duration,
-	commitfunc func(key, value interface{}),
-) {
-	a.timeout = timeoutMillisecond
-	a.commitfunc = commitfunc
+// SetTimeout change timeout default is 1000 milliseconds
+func (a *Participant) SetTimeout(millisecond time.Duration) {
+	a.timeout = millisecond
+}
+
+// start start participant service
+func (a *Participant) start(started chan bool) {
 	serverAddr := "127.0.0.1:8080"
 	conn, err := grpc.Dial(serverAddr, grpc.WithInsecure())
 	if err != nil {
@@ -334,7 +363,9 @@ func (a *Participant) StartClient(
 		return
 	}(stream, recv)
 
-	go a.run()
+	go a.mainLoop()
+
+	started <- true
 	<-recv
 	<-send
 	stream.CloseSend()
@@ -345,7 +376,7 @@ type keyValue struct {
 	Value interface{}
 }
 
-// Set execute setter
+// Set send request to Coodinator
 func (a *Participant) Set(key interface{}, value interface{}) {
 	kv := &keyValue{
 		Key:   key,
@@ -394,7 +425,7 @@ func (a *Participant) decode(encoded []byte) (*keyValue, error) {
 	return &kv, nil
 }
 
-func (a *Participant) run() {
+func (a *Participant) mainLoop() {
 	a.status = stateInit
 	for {
 		select {
