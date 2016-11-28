@@ -17,26 +17,17 @@ enum messageType {
   ACK           = 6;
 }
 
-enum requestType {
-  Get   = 0;
-  Set   = 1;
-}
-
 message Message {
-  uint64 ClientID = 1;
+  uint64 ClientID         = 1;
   messageType messageType = 2;
-  uint64 requestID  = 3;
+  uint64 requestID        = 3;
   // Substantial request
-  requestType requestType = 4;
-  bytes key = 5;
-  bytes value = 6;
+  bytes payload           = 4;
 }
 
 message EmptyMessage {
 }
 
 message SetRequest {
-  requestType requestType = 1;
-  bytes key = 2;
-  bytes value = 3;
+  bytes payload   = 1;
 }

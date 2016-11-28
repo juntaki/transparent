@@ -1,6 +1,8 @@
 package twopc
 
 import (
+	"bytes"
+	"encoding/gob"
 	"fmt"
 	"io"
 	"log"
@@ -25,12 +27,6 @@ func debugPrintln(level int, a ...interface{}) (n int, err error) {
 		return fmt.Println(a)
 	}
 	return 0, nil
-}
-
-type request struct {
-	key         interface{}
-	value       interface{}
-	requestType pb.RequestType
 }
 
 type state int
@@ -231,9 +227,7 @@ func (c *Coodinator) VoteRequest(r *pb.SetRequest) (commit bool) {
 	message := &pb.Message{
 		MessageType: pb.MessageType_VoteRequest,
 		RequestID:   c.current,
-		RequestType: r.RequestType,
-		Key:         r.Key,
-		Value:       r.Value,
+		Payload:     r.Payload,
 	}
 	c.broadcast(message)
 	commit = true
@@ -270,12 +264,16 @@ type Attendee struct {
 	clientID       uint64
 	currentRequest *pb.Message
 	client         pb.ClusterClient
+	commitfunc     func(key, value interface{})
 }
 
-func (a *Attendee) StartClient(timeoutMillisecond time.Duration) {
+func (a *Attendee) StartClient(
+	timeoutMillisecond time.Duration,
+	commitfunc func(key, value interface{}),
+) {
 	a.timeout = timeoutMillisecond
+	a.commitfunc = commitfunc
 	serverAddr := "127.0.0.1:8080"
-
 	conn, err := grpc.Dial(serverAddr, grpc.WithInsecure())
 	if err != nil {
 		debugPrintln(5, err)
@@ -339,8 +337,57 @@ func (a *Attendee) StartClient(timeoutMillisecond time.Duration) {
 	stream.CloseSend()
 }
 
-func (a *Attendee) Set() {
-	a.client.Set(context.Background(), &pb.SetRequest{})
+type keyValue struct {
+	Key   interface{}
+	Value interface{}
+}
+
+func (a *Attendee) Set(key interface{}, value interface{}) {
+	kv := &keyValue{
+		Key:   key,
+		Value: value,
+	}
+	request, err := a.encode(kv)
+	if err != nil {
+		debugPrintln(1, "Encode error", err)
+		return
+	}
+	debugPrintln(1, "Client Set", kv)
+	a.client.Set(context.Background(), request)
+}
+
+func (a *Attendee) encode(kv *keyValue) (*pb.SetRequest, error) {
+	buf := new(bytes.Buffer)
+	encoder := gob.NewEncoder(buf)
+	err := encoder.Encode(kv)
+	if err != nil {
+		return nil, err
+	}
+	request := &pb.SetRequest{
+		Payload: buf.Bytes(),
+	}
+	return request, nil
+}
+
+func (a *Attendee) Commit() {
+	kv, err := a.decode(a.currentRequest.Payload)
+	if err != nil {
+		debugPrintln(1, "Decode error", err)
+		return
+	}
+	debugPrintln(1, "Client Commit", a.clientID, kv)
+	a.commitfunc(kv.Key, kv.Value)
+}
+
+func (a *Attendee) decode(encoded []byte) (*keyValue, error) {
+	var kv keyValue
+	buf := bytes.NewBuffer(encoded)
+	encoder := gob.NewDecoder(buf)
+	err := encoder.Decode(&kv)
+	if err != nil {
+		return nil, err
+	}
+	return &kv, nil
 }
 
 func (a *Attendee) Run() {
@@ -358,12 +405,12 @@ func (a *Attendee) Run() {
 				if m.RequestID != a.current {
 					// attendee may miss the last request
 					a.status = stateAbort
-					a.VoteAbort(m)
+					a.VoteAbort(m.RequestID)
 					break
 				}
 				a.currentRequest = m
 				a.status = stateReady
-				a.VoteCommit(m)
+				a.VoteCommit(m.RequestID)
 			case pb.MessageType_GlobalCommit:
 				if a.status != stateReady ||
 					m.RequestID != a.current {
@@ -373,7 +420,7 @@ func (a *Attendee) Run() {
 				}
 				a.status = stateCommit
 				a.Commit()
-				a.ACK(m)
+				a.ACK(m.RequestID)
 			case pb.MessageType_GlobalAbort:
 				if a.status != stateReady ||
 					m.RequestID != a.current {
@@ -382,7 +429,7 @@ func (a *Attendee) Run() {
 					break
 				}
 				a.status = stateAbort
-				a.ACK(m)
+				a.ACK(m.RequestID)
 			}
 		case <-time.After(time.Millisecond * a.timeout):
 			debugPrintln(5, "Client:Timeout", a.clientID)
@@ -394,36 +441,31 @@ func (a *Attendee) Run() {
 	}
 }
 
-func (a *Attendee) VoteCommit(v *pb.Message) {
-	// send votePayload to coodinator
-	v.MessageType = pb.MessageType_VoteCommit
-	v.Key = nil
-	v.Value = nil
-	v.ClientID = a.clientID
-	a.out <- v
+func (a *Attendee) VoteCommit(requestID uint64) {
+	a.out <- &pb.Message{
+		MessageType: pb.MessageType_VoteCommit,
+		Payload:     nil,
+		ClientID:    a.clientID,
+		RequestID:   requestID,
+	}
 }
 
-func (a *Attendee) VoteAbort(v *pb.Message) {
-	// send votePayload to coodinator
-	v.MessageType = pb.MessageType_VoteAbort
-	v.Key = nil
-	v.Value = nil
-	v.ClientID = a.clientID
-	a.out <- v
+func (a *Attendee) VoteAbort(requestID uint64) {
+	a.out <- &pb.Message{
+		MessageType: pb.MessageType_VoteAbort,
+		Payload:     nil,
+		ClientID:    a.clientID,
+		RequestID:   requestID,
+	}
 }
 
-func (a *Attendee) Commit() {
-	debugPrintln(1, "ClientCommit", a.clientID, a.currentRequest)
-	// Set value
-}
-
-func (a *Attendee) ACK(v *pb.Message) {
-	// send votePayload to coodinator
-	v.MessageType = pb.MessageType_ACK
-	v.Key = nil
-	v.Value = nil
-	v.ClientID = a.clientID
-	a.out <- v
+func (a *Attendee) ACK(requestID uint64) {
+	a.out <- &pb.Message{
+		MessageType: pb.MessageType_ACK,
+		Payload:     nil,
+		ClientID:    a.clientID,
+		RequestID:   requestID,
+	}
 
 	a.current++
 	a.status = stateInit
