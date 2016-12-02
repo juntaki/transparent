@@ -21,7 +21,7 @@ func MyInit() {
 	rand.Seed(time.Now().UnixNano())
 	dummySrc = NewDummySource(5)
 	dummyCache = NewLRUCache(100, 10)
-	dummySrc.Stack(dummyCache)
+	Stack(dummyCache, dummySrc)
 }
 
 func MyTeardown() {
@@ -32,7 +32,7 @@ func MyTeardown() {
 func TestStopFlusher(t *testing.T) {
 	src := NewDummySource(5)
 	cache := NewLRUCache(100, 10)
-	src.Stack(cache)
+	Stack(cache, src)
 	for i := 0; i < 100; i++ {
 		cache.Set(i, i)
 	}

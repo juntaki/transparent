@@ -23,7 +23,7 @@ func (d dummySource) Remove(k interface{}) {
 // NewDummySource returns dummySource layer
 func NewDummySource(wait time.Duration) *Cache {
 	layer := New(0)
-	layer.BackendCache = dummySource{
+	layer.backendCache = dummySource{
 		list: make(map[interface{}]interface{}, 0),
 		wait: wait,
 	}

@@ -9,7 +9,7 @@
 //    |
 //    v Get/Set
 //  [Transparent cache] -[Flush buffer]-> [Next cache]
-//   `-[Backend cache]                     `-[Source cache]
+//   `-[backend cache]                     `-[Source cache]
 //      `-[LRU]                               `-[S3]
 package transparent
 
@@ -20,32 +20,12 @@ type Layer interface {
 	Remove(key interface{})
 	Skim(key interface{})
 	Sync()
+	SetUpper(Layer)
+	SetLower(Layer)
 }
 
-type stackable interface {
-	setUpper(Layer)
-	getLayer() Layer
-	setLower(Layer)
-}
-
-// stacker implements stackable interface
-type stacker struct {
-	upper Layer
-	this  Layer
-	lower Layer
-}
-
-func (s *stacker) setUpper(l Layer) {
-	s.upper = l
-}
-func (s *stacker) getLayer() Layer {
-	return s.this
-}
-func (s *stacker) setLower(l Layer) {
-	s.lower = l
-}
-
-func (s *stacker) Stack(upper stackable) {
-	s.setUpper(upper.getLayer())
-	upper.setLower(s.getLayer())
+// Stack stacks layers
+func Stack(upper Layer, lower Layer) {
+	upper.SetLower(lower)
+	lower.SetUpper(upper)
 }
