@@ -25,8 +25,8 @@ func MyInit() {
 }
 
 func MyTeardown() {
-	dummySrc.StopFlusher()
-	dummyCache.StopFlusher()
+	Delete(dummySrc)
+	Delete(dummyCache)
 }
 
 func TestStopFlusher(t *testing.T) {
@@ -36,7 +36,7 @@ func TestStopFlusher(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		cache.Set(i, i)
 	}
-	cache.StopFlusher()
+	Delete(cache)
 
 	value := cache.Get(99)
 	if value != 99 {

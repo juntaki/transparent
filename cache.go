@@ -51,13 +51,18 @@ func New(bufferSize int) *Cache {
 	return c
 }
 
+// Delete clean up
+func Delete(c *Cache) {
+	c.stopFlusher()
+}
+
 // StartFlusher starts flusher
-func (c *Cache) StartFlusher() {
+func (c *Cache) startFlusher() {
 	go c.flusher()
 }
 
 // StopFlusher stops flusher
-func (c *Cache) StopFlusher() {
+func (c *Cache) stopFlusher() {
 	close(c.log)
 	<-c.done
 }

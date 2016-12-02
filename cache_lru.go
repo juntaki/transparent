@@ -6,6 +6,6 @@ import lru "github.com/juntaki/transparent/lru"
 func NewLRUCache(cacheSize, bufferSize int) *Cache {
 	layer := New(bufferSize)
 	layer.backendCache = lru.New(cacheSize)
-	layer.StartFlusher()
+	layer.startFlusher()
 	return layer
 }
