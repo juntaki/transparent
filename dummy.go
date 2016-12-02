@@ -21,12 +21,11 @@ func (d *dummySource) Remove(k interface{}) {
 }
 
 // NewDummySource returns dummySource layer
-func NewDummySource(wait time.Duration) *Cache {
-	layer := New(0)
-	layer.backendCache = &dummySource{
+func NewDummySource(wait time.Duration) *Source {
+	layer := NewSource()
+	layer.storage = &dummySource{
 		list: make(map[interface{}]interface{}, 0),
 		wait: wait,
 	}
-	layer.startFlusher()
 	return layer
 }

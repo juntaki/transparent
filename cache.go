@@ -2,24 +2,15 @@ package transparent
 
 import "time"
 
-// backendCache defines the interface that TransparentCache's
-// backend data storage destination should have.
-// Add should not be failed.
-type backendCache interface {
-	Get(key interface{}) (value interface{}, found bool)
-	Add(key interface{}, value interface{})
-	Remove(key interface{})
-}
-
 // Cache provides operation of TransparentCache
 type Cache struct {
-	backendCache backendCache // Target cache
-	log          chan log     // Channel buffer
-	sync         chan bool    // Control for flush buffer
-	synced       chan bool
-	done         chan bool
-	upper        Layer
-	lower        Layer
+	storage Storage   // Target cache
+	log     chan log  // Channel buffer
+	sync    chan bool // Control for flush buffer
+	synced  chan bool
+	done    chan bool
+	upper   Layer
+	lower   Layer
 }
 
 type message int
@@ -40,8 +31,8 @@ type operation struct {
 	message message
 }
 
-// New returns Cache layer.
-func New(bufferSize int) *Cache {
+// NewCache returns Cache layer.
+func NewCache(bufferSize int) *Cache {
 	c := &Cache{
 		log:    make(chan log, bufferSize),
 		done:   make(chan bool, 1),
@@ -51,8 +42,8 @@ func New(bufferSize int) *Cache {
 	return c
 }
 
-// Delete clean up
-func Delete(c *Cache) {
+// DeleteCache clean up
+func DeleteCache(c *Cache) {
 	c.stopFlusher()
 }
 
@@ -146,7 +137,7 @@ done:
 // Get value from cache, or if not found, recursively get.
 func (c *Cache) Get(key interface{}) (value interface{}) {
 	// Try to get backend cache
-	value, found := c.backendCache.Get(key)
+	value, found := c.storage.Get(key)
 	if !found {
 		// Recursively get value from list.
 		value := c.lower.Get(key)
@@ -156,12 +147,12 @@ func (c *Cache) Get(key interface{}) (value interface{}) {
 	return value
 }
 
-// Set set new value to backendCache.
+// Set set new value to Storage.
 func (c *Cache) Set(key interface{}, value interface{}) {
 	if c.upper != nil {
 		c.Skim(key)
 	}
-	c.backendCache.Add(key, value)
+	c.storage.Add(key, value)
 	if c.lower == nil {
 		// This backend cache is final destination
 		return
@@ -179,7 +170,7 @@ func (c *Cache) Sync() {
 
 // Skim remove upper layer's old value
 func (c *Cache) Skim(key interface{}) {
-	c.backendCache.Remove(key)
+	c.storage.Remove(key)
 	if c.upper == nil {
 		// This is top layer
 		return
@@ -189,7 +180,7 @@ func (c *Cache) Skim(key interface{}) {
 
 // Remove recursively remove lower layer's value
 func (c *Cache) Remove(key interface{}) {
-	c.backendCache.Remove(key)
+	c.storage.Remove(key)
 	if c.lower == nil {
 		// This is bottom layer
 		return

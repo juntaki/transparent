@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-var dummySrc *Cache
+var dummySrc *Source
 var dummyCache *Cache
 
 func TestMain(m *testing.M) {
@@ -25,8 +25,7 @@ func MyInit() {
 }
 
 func MyTeardown() {
-	Delete(dummySrc)
-	Delete(dummyCache)
+	DeleteCache(dummyCache)
 }
 
 func TestStopFlusher(t *testing.T) {
@@ -36,7 +35,7 @@ func TestStopFlusher(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		cache.Set(i, i)
 	}
-	Delete(cache)
+	DeleteCache(cache)
 
 	value := cache.Get(99)
 	if value != 99 {
