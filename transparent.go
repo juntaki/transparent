@@ -20,12 +20,12 @@ type Layer interface {
 	Remove(key interface{})
 	Skim(key interface{})
 	Sync()
-	SetUpper(Layer)
-	SetLower(Layer)
+	setUpper(Layer)
+	setLower(Layer)
 }
 
 // Stack stacks layers
 func Stack(upper Layer, lower Layer) {
-	upper.SetLower(lower)
-	lower.SetUpper(upper)
+	upper.setLower(lower)
+	lower.setUpper(upper)
 }

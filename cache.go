@@ -195,11 +195,11 @@ func (c *Cache) Remove(key interface{}) {
 }
 
 // SetUpper set upper layer
-func (c *Cache) SetUpper(upper Layer) {
+func (c *Cache) setUpper(upper Layer) {
 	c.upper = upper
 }
 
 // SetLower set lower layer
-func (c *Cache) SetLower(lower Layer) {
+func (c *Cache) setLower(lower Layer) {
 	c.lower = lower
 }
