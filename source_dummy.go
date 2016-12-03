@@ -22,10 +22,9 @@ func (d *dummySource) Remove(k interface{}) {
 
 // NewDummySource returns dummySource layer
 func NewDummySource(wait time.Duration) *Source {
-	layer := NewSource()
-	layer.Storage = &dummySource{
+	layer, _ := NewSource(&dummySource{
 		list: make(map[interface{}]interface{}, 0),
 		wait: wait,
-	}
+	})
 	return layer
 }

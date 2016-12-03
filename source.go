@@ -1,5 +1,7 @@
 package transparent
 
+import "errors"
+
 // Source provides operation of TransparentSource
 type Source struct {
 	Storage Storage
@@ -7,12 +9,11 @@ type Source struct {
 }
 
 // NewSource returns Source
-func NewSource() *Source {
-	return &Source{}
-}
-
-func (s *Source) SetStorage(storage Storage) {
-	s.Storage = storage
+func NewSource(storage Storage) (*Source, error) {
+	if storage == nil {
+		return nil, errors.New("empty storage")
+	}
+	return &Source{Storage: storage}, nil
 }
 
 // Set set new value to storage.

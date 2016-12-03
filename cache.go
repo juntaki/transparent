@@ -1,10 +1,13 @@
 package transparent
 
-import "time"
+import (
+	"errors"
+	"time"
+)
 
 // Cache provides operation of TransparentCache
 type Cache struct {
-	storage Storage   // Target cache
+	Storage Storage   // Target cache
 	log     chan log  // Channel buffer
 	sync    chan bool // Control for flush buffer
 	synced  chan bool
@@ -32,14 +35,18 @@ type operation struct {
 }
 
 // NewCache returns Cache layer.
-func NewCache(bufferSize int) *Cache {
-	c := &Cache{
-		log:    make(chan log, bufferSize),
-		done:   make(chan bool, 1),
-		sync:   make(chan bool, 1),
-		synced: make(chan bool, 1),
+func NewCache(bufferSize int, storage Storage) (*Cache, error) {
+	if storage == nil {
+		return nil, errors.New("empty storage")
 	}
-	return c
+	c := &Cache{
+		log:     make(chan log, bufferSize),
+		done:    make(chan bool, 1),
+		sync:    make(chan bool, 1),
+		synced:  make(chan bool, 1),
+		Storage: storage,
+	}
+	return c, nil
 }
 
 // DeleteCache clean up
@@ -137,7 +144,7 @@ done:
 // Get value from cache, or if not found, recursively get.
 func (c *Cache) Get(key interface{}) (value interface{}) {
 	// Try to get backend cache
-	value, found := c.storage.Get(key)
+	value, found := c.Storage.Get(key)
 	if !found {
 		// Recursively get value from list.
 		value := c.lower.Get(key)
@@ -152,7 +159,7 @@ func (c *Cache) Set(key interface{}, value interface{}) {
 	if c.upper != nil {
 		c.Skim(key)
 	}
-	c.storage.Add(key, value)
+	c.Storage.Add(key, value)
 	if c.lower == nil {
 		// This backend cache is final destination
 		return
@@ -170,7 +177,7 @@ func (c *Cache) Sync() {
 
 // Skim remove upper layer's old value
 func (c *Cache) Skim(key interface{}) {
-	c.storage.Remove(key)
+	c.Storage.Remove(key)
 	if c.upper == nil {
 		// This is top layer
 		return
@@ -180,7 +187,7 @@ func (c *Cache) Skim(key interface{}) {
 
 // Remove recursively remove lower layer's value
 func (c *Cache) Remove(key interface{}) {
-	c.storage.Remove(key)
+	c.Storage.Remove(key)
 	if c.lower == nil {
 		// This is bottom layer
 		return

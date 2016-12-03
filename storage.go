@@ -1,5 +1,7 @@
 package transparent
 
+import "errors"
+
 // Storage defines the interface that backend data storage destination should have.
 // Add should not be failed.
 type Storage interface {
@@ -10,17 +12,38 @@ type Storage interface {
 
 // CustomStorage define customizable storage
 type CustomStorage struct {
-	get    func(k interface{}) (interface{}, bool)
-	add    func(k interface{}, v interface{})
-	remove func(k interface{})
+	getFunc    func(k interface{}) (interface{}, bool)
+	addFunc    func(k interface{}, v interface{})
+	removeFunc func(k interface{})
 }
 
+// Get is customizable get function
 func (c *CustomStorage) Get(k interface{}) (interface{}, bool) {
-	return c.get(k)
+	return c.getFunc(k)
 }
+
+// Add is customizable add function
 func (c *CustomStorage) Add(k interface{}, v interface{}) {
-	c.add(k, v)
+	c.addFunc(k, v)
 }
+
+// Remove is customizable remove function
 func (c *CustomStorage) Remove(k interface{}) {
-	c.remove(k)
+	c.removeFunc(k)
+}
+
+// NewCustomStorage returns CustomStorage
+func NewCustomStorage(
+	getFunc func(k interface{}) (interface{}, bool),
+	addFunc func(k interface{}, v interface{}),
+	removeFunc func(k interface{}),
+) (*CustomStorage, error) {
+	if getFunc == nil || addFunc == nil || removeFunc == nil {
+		return nil, errors.New("function must be filled")
+	}
+	return &CustomStorage{
+		getFunc:    getFunc,
+		addFunc:    addFunc,
+		removeFunc: removeFunc,
+	}, nil
 }
