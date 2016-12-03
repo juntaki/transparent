@@ -2,7 +2,7 @@ package transparent
 
 // Source provides operation of TransparentSource
 type Source struct {
-	storage Storage
+	Storage Storage
 	upper   Layer
 }
 
@@ -11,28 +11,32 @@ func NewSource() *Source {
 	return &Source{}
 }
 
+func (s *Source) SetStorage(storage Storage) {
+	s.Storage = storage
+}
+
 // Set set new value to storage.
 func (s *Source) Set(key interface{}, value interface{}) {
 	if s.upper != nil {
 		s.Skim(key)
 	}
-	s.storage.Add(key, value)
+	s.Storage.Add(key, value)
 }
 
 // Get value from storage
 func (s *Source) Get(key interface{}) (value interface{}) {
-	value, _ = s.storage.Get(key)
+	value, _ = s.Storage.Get(key)
 	return
 }
 
 // Remove value
 func (s *Source) Remove(key interface{}) {
-	s.storage.Remove(key)
+	s.Storage.Remove(key)
 }
 
 // Skim remove upper layer's old value
 func (s *Source) Skim(key interface{}) {
-	s.storage.Remove(key)
+	s.Storage.Remove(key)
 	if s.upper == nil {
 		// This is top layer
 		return
