@@ -37,7 +37,10 @@ func TestStopFlusher(t *testing.T) {
 	}
 	DeleteCache(cache)
 
-	value := cache.Get(99)
+	value, err := cache.Get(99)
+	if err != nil {
+		t.Error(err)
+	}
 	if value != 99 {
 		t.Error(value)
 	}
@@ -46,7 +49,10 @@ func TestStopFlusher(t *testing.T) {
 // Simple Set and Get
 func TestSrc(t *testing.T) {
 	dummySrc.Set(100, "test")
-	value := dummySrc.Get(100)
+	value, err := dummySrc.Get(100)
+	if err != nil {
+		t.Error(err)
+	}
 	if value != "test" {
 		t.Error(value)
 	}
@@ -56,14 +62,20 @@ func TestSrc(t *testing.T) {
 // Tiered, Set and Get
 func TestCache(t *testing.T) {
 	dummySrc.Set(100, "test")
-	value := dummyCache.Get(100)
+	value, err := dummyCache.Get(100)
+	if err != nil {
+		t.Error(err)
+	}
 	if value != "test" {
 		t.Error(value)
 	}
 	dummyCache.Set(100, "test")
 	dummyCache.Sync()
 
-	value = dummyCache.Get(100)
+	value, err = dummyCache.Get(100)
+	if err != nil {
+		t.Error(err)
+	}
 	if value != "test" {
 		t.Error(value)
 	}
@@ -75,8 +87,14 @@ func TestSync(t *testing.T) {
 		dummyCache.Set(i, "writeback")
 	}
 	dummyCache.Sync()
-	value1 := dummySrc.Get(300)
-	value2 := dummyCache.Get(300)
+	value1, err := dummySrc.Get(300)
+	if err != nil {
+		t.Error(err)
+	}
+	value2, err := dummyCache.Get(300)
+	if err != nil {
+		t.Error(err)
+	}
 	if value1 != value2 {
 		t.Error(value1, value2)
 	}

@@ -2,6 +2,8 @@
 // Cache is compatible LRU for transparent.BackendCache
 package lru
 
+import "errors"
+
 // Cache is compatible LRU for transparent.BackendCache
 type Cache struct {
 	hash           map[interface{}]*keyValue
@@ -32,19 +34,19 @@ func New(maxEntries int) *Cache {
 }
 
 // Get value from cache if exist
-func (c *Cache) Get(key interface{}) (value interface{}, found bool) {
+func (c *Cache) Get(key interface{}) (value interface{}, err error) {
 	if kv, ok := c.hash[key]; ok {
 		if kv != c.listHead.next {
 			listRemove(kv)
 			listAdd(c.listHead, kv)
 		}
-		return kv.value, true
+		return kv.value, nil
 	}
-	return nil, false
+	return nil, errors.New("value not found")
 }
 
 // Add value to cache
-func (c *Cache) Add(key interface{}, value interface{}) {
+func (c *Cache) Add(key interface{}, value interface{}) (err error) {
 	if kv, ok := c.hash[key]; ok {
 		if kv != c.listHead.next {
 			listRemove(kv)
@@ -67,14 +69,16 @@ func (c *Cache) Add(key interface{}, value interface{}) {
 		listAdd(c.listHead, kv)
 		c.hash[key] = kv
 	}
+	return nil
 }
 
 // Remove value from cache
-func (c *Cache) Remove(key interface{}) {
+func (c *Cache) Remove(key interface{}) (err error) {
 	if kv, ok := c.hash[key]; ok {
 		delete(c.hash, kv)
 		listRemove(kv)
 	}
+	return nil
 }
 
 func listRemove(kv *keyValue) {

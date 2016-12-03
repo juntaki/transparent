@@ -1,19 +1,27 @@
 package transparent
 
-import "testing"
+import (
+	"errors"
+	"testing"
+)
 
 func TestCustomStorage(t *testing.T) {
 	test := make(map[interface{}]interface{})
 
-	getFunc := func(k interface{}) (interface{}, bool) {
+	getFunc := func(k interface{}) (interface{}, error) {
 		value, ok := test[k]
-		return value, ok
+		if !ok {
+			return nil, errors.New("value not found")
+		}
+		return value, nil
 	}
-	addFunc := func(k interface{}, v interface{}) {
+	addFunc := func(k interface{}, v interface{}) error {
 		test[k] = v
+		return nil
 	}
-	removeFunc := func(k interface{}) {
+	removeFunc := func(k interface{}) error {
 		delete(test, k)
+		return nil
 	}
 
 	storage, err := NewCustomStorage(getFunc, addFunc, removeFunc)
@@ -21,15 +29,17 @@ func TestCustomStorage(t *testing.T) {
 		t.Error(err)
 	}
 	storage.Add("test", "value")
-	value, ok := storage.Get("test")
-	if ok != true || value != "value" {
-		t.Error(ok)
+	value, err := storage.Get("test")
+	if err != nil || value != "value" {
+		t.Error(err)
 		t.Error(value)
 	}
 	storage.Remove("test")
-	value2, ok := storage.Get("test")
-	if ok != false {
-		t.Error(ok)
+	value2, err := storage.Get("test")
+	if err == nil {
+		t.Error(err)
 		t.Error(value2)
 	}
+
+	NewSource(storage)
 }

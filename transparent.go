@@ -15,11 +15,11 @@ package transparent
 
 // Layer is stackable function
 type Layer interface {
-	Set(key interface{}, value interface{})
-	Get(key interface{}) (value interface{})
-	Remove(key interface{})
-	Skim(key interface{})
-	Sync()
+	Set(key interface{}, value interface{}) error
+	Get(key interface{}) (value interface{}, err error)
+	Remove(key interface{}) error
+	Skim(key interface{}) error
+	Sync() error
 	setUpper(Layer)
 	setLower(Layer)
 }

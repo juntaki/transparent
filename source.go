@@ -17,37 +17,50 @@ func NewSource(storage Storage) (*Source, error) {
 }
 
 // Set set new value to storage.
-func (s *Source) Set(key interface{}, value interface{}) {
+func (s *Source) Set(key interface{}, value interface{}) (err error) {
 	if s.upper != nil {
-		s.Skim(key)
+		err = s.Skim(key)
+		if err != nil {
+			return err
+		}
 	}
-	s.Storage.Add(key, value)
+	err = s.Storage.Add(key, value)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // Get value from storage
-func (s *Source) Get(key interface{}) (value interface{}) {
-	value, _ = s.Storage.Get(key)
-	return
+func (s *Source) Get(key interface{}) (value interface{}, err error) {
+	return s.Storage.Get(key)
 }
 
 // Remove value
-func (s *Source) Remove(key interface{}) {
-	s.Storage.Remove(key)
+func (s *Source) Remove(key interface{}) (err error) {
+	return s.Storage.Remove(key)
 }
 
 // Skim remove upper layer's old value
-func (s *Source) Skim(key interface{}) {
-	s.Storage.Remove(key)
+func (s *Source) Skim(key interface{}) (err error) {
+	err = s.Storage.Remove(key)
+	if err != nil {
+		return err
+	}
 	if s.upper == nil {
 		// This is top layer
 		return
 	}
-	s.upper.Skim(key)
+	err = s.upper.Skim(key)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // Sync do nothing
-func (s *Source) Sync() {
-	return
+func (s *Source) Sync() error {
+	return nil
 }
 
 func (s *Source) setUpper(upper Layer) {

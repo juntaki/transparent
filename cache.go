@@ -142,59 +142,76 @@ done:
 }
 
 // Get value from cache, or if not found, recursively get.
-func (c *Cache) Get(key interface{}) (value interface{}) {
+func (c *Cache) Get(key interface{}) (value interface{}, err error) {
 	// Try to get backend cache
-	value, found := c.Storage.Get(key)
-	if !found {
+	value, err = c.Storage.Get(key)
+	if err != nil {
 		// Recursively get value from list.
-		value := c.lower.Get(key)
-		c.Set(key, value)
-		return value
+		value, err = c.lower.Get(key)
+		if err != nil {
+			return nil, err
+		}
+		err = c.Storage.Add(key, value)
+		if err != nil {
+			return nil, err
+		}
+		return value, nil
 	}
-	return value
+	return value, nil
 }
 
 // Set set new value to Storage.
-func (c *Cache) Set(key interface{}, value interface{}) {
-	if c.upper != nil {
-		c.Skim(key)
+func (c *Cache) Set(key interface{}, value interface{}) (err error) {
+	err = c.Storage.Add(key, value)
+	if err != nil {
+		return err
 	}
-	c.Storage.Add(key, value)
 	if c.lower == nil {
 		// This backend cache is final destination
-		return
+		return nil
 	}
 	// Queue to flush
 	c.log <- log{key, &operation{value: value, message: set}}
-	return
+	return nil
 }
 
 // Sync current buffered value
-func (c *Cache) Sync() {
+func (c *Cache) Sync() error {
 	c.sync <- true
 	<-c.synced
+	return nil
 }
 
 // Skim remove upper layer's old value
-func (c *Cache) Skim(key interface{}) {
-	c.Storage.Remove(key)
+func (c *Cache) Skim(key interface{}) (err error) {
+	err = c.Storage.Remove(key)
+	if err != nil {
+		return err
+	}
 	if c.upper == nil {
 		// This is top layer
-		return
+		return nil
 	}
-	c.upper.Skim(key)
+	err = c.upper.Skim(key)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // Remove recursively remove lower layer's value
-func (c *Cache) Remove(key interface{}) {
-	c.Storage.Remove(key)
+func (c *Cache) Remove(key interface{}) (err error) {
+	err = c.Storage.Remove(key)
+	if err != nil {
+		return err
+	}
 	if c.lower == nil {
 		// This is bottom layer
-		return
+		return nil
 	}
 	// Queue to flush
 	c.log <- log{key, &operation{nil, remove}}
-	return
+	return nil
 }
 
 // SetUpper set upper layer
