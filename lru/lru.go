@@ -1,12 +1,16 @@
-// Package lru is simple and fast LRU implementation, for single thread.
-// Cache is compatible LRU for transparent.BackendCache
+// Package lru is simple LRU implementation.
+// Cache is compatible for transparent.Storage
 package lru
 
-import "errors"
+import (
+	"errors"
+	"sync"
+)
 
 // Cache is compatible LRU for transparent.BackendCache
 type Cache struct {
 	hash           map[interface{}]*keyValue
+	lock           sync.RWMutex
 	listHead       *keyValue
 	currentEntries int
 	maxEntries     int
@@ -26,6 +30,7 @@ func New(maxEntries int) *Cache {
 		currentEntries: 0,
 		maxEntries:     maxEntries,
 		listHead:       &keyValue{},
+		lock:           sync.RWMutex{},
 	}
 
 	c.listHead.next = c.listHead
@@ -35,6 +40,8 @@ func New(maxEntries int) *Cache {
 
 // Get value from cache if exist
 func (c *Cache) Get(key interface{}) (value interface{}, err error) {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
 	if kv, ok := c.hash[key]; ok {
 		if kv != c.listHead.next {
 			listRemove(kv)
@@ -47,6 +54,8 @@ func (c *Cache) Get(key interface{}) (value interface{}, err error) {
 
 // Add value to cache
 func (c *Cache) Add(key interface{}, value interface{}) (err error) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	if kv, ok := c.hash[key]; ok {
 		if kv != c.listHead.next {
 			listRemove(kv)
@@ -74,6 +83,8 @@ func (c *Cache) Add(key interface{}, value interface{}) (err error) {
 
 // Remove value from cache
 func (c *Cache) Remove(key interface{}) (err error) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	if kv, ok := c.hash[key]; ok {
 		delete(c.hash, key)
 		listRemove(kv)

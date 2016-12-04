@@ -18,7 +18,6 @@ type Layer interface {
 	Set(key interface{}, value interface{}) error
 	Get(key interface{}) (value interface{}, err error)
 	Remove(key interface{}) error
-	Skim(key interface{}) error
 	Sync() error
 	setUpper(Layer)
 	setLower(Layer)

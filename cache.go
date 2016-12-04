@@ -184,23 +184,6 @@ func (c *Cache) Sync() error {
 	return nil
 }
 
-// Skim remove upper layer's old value
-func (c *Cache) Skim(key interface{}) (err error) {
-	err = c.Storage.Remove(key)
-	if err != nil {
-		return err
-	}
-	if c.upper == nil {
-		// This is top layer
-		return nil
-	}
-	err = c.upper.Skim(key)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 // Remove recursively remove lower layer's value
 func (c *Cache) Remove(key interface{}) (err error) {
 	err = c.Storage.Remove(key)

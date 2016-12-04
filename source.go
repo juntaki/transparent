@@ -18,12 +18,6 @@ func NewSource(storage Storage) (*Source, error) {
 
 // Set set new value to storage.
 func (s *Source) Set(key interface{}, value interface{}) (err error) {
-	if s.upper != nil {
-		err = s.Skim(key)
-		if err != nil {
-			return err
-		}
-	}
 	err = s.Storage.Add(key, value)
 	if err != nil {
 		return err
@@ -39,23 +33,6 @@ func (s *Source) Get(key interface{}) (value interface{}, err error) {
 // Remove value
 func (s *Source) Remove(key interface{}) (err error) {
 	return s.Storage.Remove(key)
-}
-
-// Skim remove upper layer's old value
-func (s *Source) Skim(key interface{}) (err error) {
-	err = s.Storage.Remove(key)
-	if err != nil {
-		return err
-	}
-	if s.upper == nil {
-		// This is top layer
-		return
-	}
-	err = s.upper.Skim(key)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 // Sync do nothing
