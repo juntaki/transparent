@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"sync"
 	"time"
 
 	"golang.org/x/net/context"
@@ -61,6 +62,7 @@ type member string
 
 // Coodinator distribute vote request
 type Coodinator struct {
+	lock    sync.RWMutex
 	in      chan *pb.Message
 	out     map[uint64]chan *pb.Message
 	request chan *pb.SetRequest
@@ -76,6 +78,7 @@ func NewCoodinator() *Coodinator {
 	c := &Coodinator{
 		timeout: 1000,
 		in:      make(chan *pb.Message, 1),
+		lock:    sync.RWMutex{},
 		out:     make(map[uint64]chan *pb.Message),
 		request: make(chan *pb.SetRequest, 10),
 		status:  stateInit,
@@ -121,7 +124,9 @@ func (c *Coodinator) Connection(stream pb.Cluster_ConnectionServer) error {
 		MessageType: pb.MessageType_ACK,
 		RequestID:   c.current,
 	}
+	c.lock.Lock()
 	c.out[clientID] = make(chan *pb.Message, 1)
+	c.lock.Unlock()
 	debugPrintln(5, "Server:Send", m)
 	if err := stream.Send(m); err != nil {
 		debugPrintln(5, err)
@@ -150,8 +155,11 @@ func (c *Coodinator) Connection(stream pb.Cluster_ConnectionServer) error {
 	// Sender
 	send := make(chan bool)
 	go func(stream pb.Cluster_ConnectionServer, clientID uint64, finish chan bool) {
+		c.lock.RLock()
+		sendChannel := c.out[clientID]
+		c.lock.RUnlock()
 		for {
-			m := <-c.out[clientID]
+			m := <-sendChannel
 			debugPrintln(5, "Server:Send", m)
 			if err := stream.Send(m); err != nil {
 				debugPrintln(5, err)
