@@ -146,6 +146,9 @@ func (c *Cache) Get(key interface{}) (value interface{}, err error) {
 	// Try to get backend cache
 	value, err = c.Storage.Get(key)
 	if err != nil {
+		if c.lower == nil {
+			return nil, errors.New("value not found")
+		}
 		// Recursively get value from list.
 		value, err = c.lower.Get(key)
 		if err != nil {
@@ -155,7 +158,6 @@ func (c *Cache) Get(key interface{}) (value interface{}, err error) {
 		if err != nil {
 			return nil, err
 		}
-		return value, nil
 	}
 	return value, nil
 }
