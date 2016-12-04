@@ -58,7 +58,7 @@ func (c *Cache) Add(key interface{}, value interface{}) (err error) {
 			c.currentEntries++
 		} else {
 			lastItem := c.listHead.prev
-			delete(c.hash, lastItem)
+			delete(c.hash, lastItem.key)
 			listRemove(lastItem)
 		}
 
@@ -75,7 +75,7 @@ func (c *Cache) Add(key interface{}, value interface{}) (err error) {
 // Remove value from cache
 func (c *Cache) Remove(key interface{}) (err error) {
 	if kv, ok := c.hash[key]; ok {
-		delete(c.hash, kv)
+		delete(c.hash, key)
 		listRemove(kv)
 	}
 	return nil
