@@ -28,3 +28,17 @@ func Stack(upper Layer, lower Layer) {
 	upper.setLower(lower)
 	lower.setUpper(upper)
 }
+
+// message passing between layer or its internals
+type message int
+
+const (
+	messageSet message = iota
+	messageRemove
+	messageSync
+)
+
+type operation struct {
+	Value   interface{}
+	Message message
+}

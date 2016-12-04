@@ -14,7 +14,7 @@ import (
 
 	"google.golang.org/grpc"
 
-	pb "github.com/juntaki/transparent/2pc/pb"
+	pb "github.com/juntaki/transparent/twopc/pb"
 )
 
 // DebugLevel determine the amount of debug output
@@ -274,7 +274,7 @@ func (c *Coodinator) voteRequest(r *pb.SetRequest) (commit bool) {
 }
 
 // NewParticipant returns started Participant
-func NewParticipant(commitfunc func(key, value interface{})) *Participant {
+func NewParticipant(commitfunc func(key, value interface{}) error) *Participant {
 	p := &Participant{
 		commitfunc: commitfunc,
 		timeout:    1000, //millisecond
@@ -296,7 +296,7 @@ type Participant struct {
 	clientID       uint64
 	currentRequest *pb.Message
 	client         pb.ClusterClient
-	commitfunc     func(key, value interface{})
+	commitfunc     func(key, value interface{}) error
 }
 
 // SetTimeout change timeout default is 1000 milliseconds
@@ -377,8 +377,8 @@ type keyValue struct {
 	Value interface{}
 }
 
-// Set send request to Coodinator
-func (a *Participant) Set(key interface{}, value interface{}) {
+// Request send request to Coodinator
+func (a *Participant) Request(key interface{}, value interface{}) error {
 	kv := &keyValue{
 		Key:   key,
 		Value: value,
@@ -386,13 +386,15 @@ func (a *Participant) Set(key interface{}, value interface{}) {
 	request, err := a.encode(kv)
 	if err != nil {
 		debugPrintln(1, "Encode error", err)
-		return
+		return err
 	}
 	debugPrintln(1, "Client Set", kv)
-	a.client.Set(context.Background(), request)
+	_, err = a.client.Set(context.Background(), request)
+	return err
 }
 
 func (a *Participant) encode(kv *keyValue) (*pb.SetRequest, error) {
+	gob.Register(kv.Value)
 	buf := new(bytes.Buffer)
 	encoder := gob.NewEncoder(buf)
 	err := encoder.Encode(kv)
@@ -405,14 +407,14 @@ func (a *Participant) encode(kv *keyValue) (*pb.SetRequest, error) {
 	return request, nil
 }
 
-func (a *Participant) commit() {
+func (a *Participant) commit() error {
 	kv, err := a.decode(a.currentRequest.Payload)
 	if err != nil {
 		debugPrintln(1, "Decode error", err)
-		return
+		return err
 	}
 	debugPrintln(1, "Client Commit", a.clientID, kv)
-	a.commitfunc(kv.Key, kv.Value)
+	return a.commitfunc(kv.Key, kv.Value)
 }
 
 func (a *Participant) decode(encoded []byte) (*keyValue, error) {

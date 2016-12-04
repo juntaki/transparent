@@ -16,22 +16,10 @@ type Cache struct {
 	lower   Layer
 }
 
-type message int
-
-const (
-	set message = iota
-	remove
-)
-
 // Flush buffer use this struct in its log channel
 type log struct {
 	key interface{}
 	*operation
-}
-
-type operation struct {
-	value   interface{}
-	message message
 }
 
 // NewCache returns Cache layer.
@@ -66,19 +54,18 @@ func (c *Cache) stopFlusher() {
 }
 
 type buffer struct {
-	queue map[interface{}]operation
+	queue map[interface{}]*operation
 	c     *Cache
 	limit int
 }
 
 func (b *buffer) reset() {
-	b.queue = make(map[interface{}]operation)
+	b.queue = make(map[interface{}]*operation)
 }
 
 func (b *buffer) add(l *log) {
-	b.queue[l.key] = operation{l.value, l.message}
+	b.queue[l.key] = l.operation
 }
-
 func (b *buffer) checkLimit() {
 	if len(b.queue) > b.limit {
 		b.flush()
@@ -87,11 +74,11 @@ func (b *buffer) checkLimit() {
 
 func (b *buffer) flush() {
 	for k, o := range b.queue {
-		switch o.message {
-		case remove:
+		switch o.Message {
+		case messageRemove:
 			b.c.lower.Remove(k)
-		case set:
-			b.c.lower.Set(k, o.value)
+		case messageSet:
+			b.c.lower.Set(k, o.Value)
 		}
 	}
 	b.reset()
@@ -173,7 +160,7 @@ func (c *Cache) Set(key interface{}, value interface{}) (err error) {
 		return nil
 	}
 	// Queue to flush
-	c.log <- log{key, &operation{value: value, message: set}}
+	c.log <- log{key, &operation{Value: value, Message: messageSet}}
 	return nil
 }
 
@@ -195,7 +182,7 @@ func (c *Cache) Remove(key interface{}) (err error) {
 		return nil
 	}
 	// Queue to flush
-	c.log <- log{key, &operation{nil, remove}}
+	c.log <- log{key, &operation{Value: nil, Message: messageRemove}}
 	return nil
 }
 

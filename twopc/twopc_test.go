@@ -10,16 +10,19 @@ func TestServer(t *testing.T) {
 	NewCoodinator()
 
 	array1 := [][]interface{}{}
-	commit1 := func(key, value interface{}) {
+	commit1 := func(key, value interface{}) error {
 		array1 = append(array1, []interface{}{key, value})
+		return nil
 	}
 	array2 := [][]interface{}{}
-	commit2 := func(key, value interface{}) {
+	commit2 := func(key, value interface{}) error {
 		array2 = append(array2, []interface{}{key, value})
+		return nil
 	}
 	array3 := [][]interface{}{}
-	commit3 := func(key, value interface{}) {
+	commit3 := func(key, value interface{}) error {
 		array3 = append(array3, []interface{}{key, value})
+		return nil
 	}
 
 	expected := [][]interface{}{
@@ -31,9 +34,9 @@ func TestServer(t *testing.T) {
 	a2 := NewParticipant(commit2)
 	a3 := NewParticipant(commit3)
 
-	a1.Set("testkey1", "testvalue1")
-	a2.Set("testkey2", "testvalue2")
-	a3.Set("testkey3", "testvalue3")
+	a1.Request("testkey1", "testvalue1")
+	a2.Request("testkey2", "testvalue2")
+	a3.Request("testkey3", "testvalue3")
 
 	time.Sleep(3 * time.Second)
 
