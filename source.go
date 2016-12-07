@@ -1,6 +1,11 @@
 package transparent
 
-import "errors"
+import (
+	"errors"
+	"time"
+
+	"github.com/aws/aws-sdk-go/aws"
+)
 
 // Source provides operation of TransparentSource
 type Source struct {
@@ -46,4 +51,39 @@ func (s *Source) setUpper(upper Layer) {
 
 func (s *Source) setLower(lower Layer) {
 	panic("don't set lower layer")
+}
+
+// NewDummySource returns dummyStorage layer
+func NewDummySource(wait time.Duration) *Source {
+	layer, _ := NewSource(&dummyStorage{
+		list: make(map[interface{}]interface{}, 0),
+		wait: wait,
+	})
+	return layer
+}
+
+// NewS3Source returns S3Source
+func NewS3Source(bucket string, cfgs ...*aws.Config) (*Source, error) {
+	s3, err := NewS3Storage(bucket, cfgs...)
+	if err != nil {
+		return nil, err
+	}
+	layer, err := NewSource(s3)
+	if err != nil {
+		return nil, err
+	}
+	return layer, nil
+}
+
+// NewFilesystemSource returns FilesystemSource
+func NewFilesystemSource(directory string) (*Source, error) {
+	filesystem, err := NewFilesystemStorage(directory)
+	if err != nil {
+		return nil, err
+	}
+	layer, err := NewSource(filesystem)
+	if err != nil {
+		return nil, err
+	}
+	return layer, nil
 }

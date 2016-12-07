@@ -3,6 +3,9 @@ package transparent
 import (
 	"errors"
 	"time"
+
+	"github.com/aws/aws-sdk-go/aws"
+	lru "github.com/juntaki/transparent/lru"
 )
 
 // Cache provides operation of TransparentCache
@@ -194,4 +197,43 @@ func (c *Cache) setUpper(upper Layer) {
 // SetLower set lower layer
 func (c *Cache) setLower(lower Layer) {
 	c.lower = lower
+}
+
+// NewLRUCache returns LRUCache
+func NewLRUCache(bufferSize, cacheSize int) (*Cache, error) {
+	lru := lru.New(cacheSize)
+	layer, err := NewCache(bufferSize, lru)
+	if err != nil {
+		return nil, err
+	}
+	layer.startFlusher()
+	return layer, nil
+}
+
+// NewS3Cache returns S3Cache
+func NewS3Cache(bufferSize int, bucket string, cfgs ...*aws.Config) (*Cache, error) {
+	s3, err := NewS3Storage(bucket, cfgs...)
+	if err != nil {
+		return nil, err
+	}
+	layer, err := NewCache(bufferSize, s3)
+	if err != nil {
+		return nil, err
+	}
+	layer.startFlusher()
+	return layer, nil
+}
+
+// NewFilesystemCache returns FilesystemCache
+func NewFilesystemCache(bufferSize int, directory string) (*Cache, error) {
+	filesystem, err := NewFilesystemStorage(directory)
+	if err != nil {
+		return nil, err
+	}
+	layer, err := NewCache(bufferSize, filesystem)
+	if err != nil {
+		return nil, err
+	}
+	layer.startFlusher()
+	return layer, nil
 }

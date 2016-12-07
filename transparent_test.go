@@ -1,6 +1,7 @@
 package transparent
 
 import (
+	"fmt"
 	"math/rand"
 	"os"
 	"testing"
@@ -18,9 +19,15 @@ func TestMain(m *testing.M) {
 }
 
 func MyInit() {
+	var err error
 	rand.Seed(time.Now().UnixNano())
 	dummySrc = NewDummySource(5)
-	dummyCache = NewLRUCache(100, 10)
+	dummyCache, err = NewLRUCache(10, 100)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	fmt.Println(dummyCache.Storage)
 	Stack(dummyCache, dummySrc)
 }
 
@@ -30,7 +37,10 @@ func MyTeardown() {
 
 func TestStopFlusher(t *testing.T) {
 	src := NewDummySource(5)
-	cache := NewLRUCache(100, 10)
+	cache, err := NewLRUCache(10, 100)
+	if err != nil {
+		t.Error(err)
+	}
 	Stack(cache, src)
 	for i := 0; i < 100; i++ {
 		cache.Set(i, i)

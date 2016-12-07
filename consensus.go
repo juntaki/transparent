@@ -1,6 +1,10 @@
 package transparent
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/juntaki/transparent/twopc"
+)
 
 //    User program A       User program B
 //          |                    |
@@ -91,4 +95,13 @@ func (d *Consensus) setUpper(upper Layer) {
 // SetLower set lower layer
 func (d *Consensus) setLower(lower Layer) {
 	d.lower = lower
+}
+
+// NewTwoPCConsensus returns Two phase commit consensus layer
+func NewTwoPCConsensus() *Consensus {
+	c := &Consensus{}
+	participant := twopc.NewParticipant(c.commit)
+	c.Participant = participant
+
+	return c
 }
