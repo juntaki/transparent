@@ -29,7 +29,6 @@ func MyInit() {
 		fmt.Println(err)
 	}
 
-	fmt.Println(dummyCache.Storage)
 	Stack(dummyCache, dummySrc)
 }
 
@@ -150,7 +149,7 @@ func BenchmarkCacheSetAndSync(b *testing.B) {
 	}
 }
 
-func ExampleTest() {
+func Example() {
 	var err error
 	cacheLayer1, _ := transparent.NewLRUCache(10, 100)
 	cacheLayer2, _ := transparent.NewFilesystemCache(10, "/tmp")
