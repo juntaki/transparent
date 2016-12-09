@@ -43,6 +43,11 @@ func TestConsensus(t *testing.T) {
 		t.Error(err)
 	}
 
+	err = a1.Sync()
+	if err != nil {
+		t.Error(err)
+	}
+
 	time.Sleep(3 * time.Second)
 
 	val, err := a1.Get("test1")
@@ -50,6 +55,19 @@ func TestConsensus(t *testing.T) {
 		t.Error(err)
 	}
 	if val != "value1" {
+		t.Error(val)
+	}
+
+	err = a1.Remove("test1")
+	if err != nil {
+		t.Error(err)
+	}
+
+	time.Sleep(3 * time.Second)
+
+	val, err = a1.Get("test1")
+	if err == nil {
+		t.Error(err)
 		t.Error(val)
 	}
 }

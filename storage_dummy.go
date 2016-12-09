@@ -1,6 +1,7 @@
 package transparent
 
 import (
+	"errors"
 	"sync"
 	"time"
 )
@@ -23,7 +24,11 @@ func (d *DummyStorage) Get(k interface{}) (interface{}, error) {
 	time.Sleep(d.wait * time.Millisecond)
 	d.lock.RLock()
 	defer d.lock.RUnlock()
-	return d.list[k], nil
+	value, ok := d.list[k]
+	if !ok {
+		return nil, errors.New("key not found")
+	}
+	return value, nil
 }
 func (d *DummyStorage) Add(k interface{}, v interface{}) error {
 	time.Sleep(d.wait * time.Millisecond)
