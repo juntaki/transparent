@@ -3,26 +3,21 @@ package transparent
 import (
 	"bytes"
 	"errors"
+	"io/ioutil"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 )
 
 // S3Storage store file at directory, filename is key
 type S3Storage struct {
-	svc    *s3.S3
+	svc    s3iface.S3API
 	bucket *string
 }
 
 // NewS3Storage returns S3Storage
-func NewS3Storage(bucket string, cfgs ...*aws.Config) (*S3Storage, error) {
-	sess, err := session.NewSession()
-	if err != nil {
-		return nil, err
-	}
-
-	svc := s3.New(sess, cfgs...)
+func NewS3Storage(bucket string, svc s3iface.S3API) (*S3Storage, error) {
 	return &S3Storage{
 		svc:    svc,
 		bucket: aws.String(bucket),
@@ -43,7 +38,11 @@ func (s *S3Storage) Get(k interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	return respGet.Body, nil
+	body, err := ioutil.ReadAll(respGet.Body)
+	if err != nil {
+		return nil, err
+	}
+	return body, nil
 }
 
 // Add is set put request

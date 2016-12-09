@@ -21,7 +21,10 @@ func TestMain(m *testing.M) {
 func MyInit() {
 	var err error
 	rand.Seed(time.Now().UnixNano())
-	dummySrc = NewDummySource(5)
+	dummySrc, err = NewDummySource(5)
+	if err != nil {
+		fmt.Println(err)
+	}
 	dummyCache, err = NewLRUCache(10, 100)
 	if err != nil {
 		fmt.Println(err)
@@ -35,7 +38,10 @@ func MyTeardown() {
 }
 
 func TestStopFlusher(t *testing.T) {
-	src := NewDummySource(5)
+	src, err := NewDummySource(5)
+	if err != nil {
+		t.Error(err)
+	}
 	cache, err := NewLRUCache(10, 100)
 	if err != nil {
 		t.Error(err)

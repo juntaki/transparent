@@ -4,7 +4,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 )
 
 // Source provides operation of TransparentSource
@@ -54,17 +54,18 @@ func (s *Source) setLower(lower Layer) {
 }
 
 // NewDummySource returns dummyStorage layer
-func NewDummySource(wait time.Duration) *Source {
-	layer, _ := NewSource(&dummyStorage{
-		list: make(map[interface{}]interface{}, 0),
-		wait: wait,
-	})
-	return layer
+func NewDummySource(wait time.Duration) (*Source, error) {
+	dummy, err := NewDummyStorage(wait)
+	if err != nil {
+		return nil, err
+	}
+	layer, _ := NewSource(dummy)
+	return layer, nil
 }
 
 // NewS3Source returns S3Source
-func NewS3Source(bucket string, cfgs ...*aws.Config) (*Source, error) {
-	s3, err := NewS3Storage(bucket, cfgs...)
+func NewS3Source(bucket string, svc s3iface.S3API) (*Source, error) {
+	s3, err := NewS3Storage(bucket, svc)
 	if err != nil {
 		return nil, err
 	}

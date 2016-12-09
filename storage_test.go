@@ -28,9 +28,24 @@ func TestCustomStorage(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	storage.Add("test", "value")
+	basicCommand(t, storage)
+}
+
+func TestFilesystemStorage(t *testing.T) {
+	storage, err := NewFilesystemStorage("/tmp")
+	if err != nil {
+		t.Error(err)
+	}
+	basicCommand(t, storage)
+}
+
+func basicCommand(t *testing.T, storage Storage) {
+	err := storage.Add("test", []byte("value"))
+	if err != nil {
+		t.Error(err)
+	}
 	value, err := storage.Get("test")
-	if err != nil || value != "value" {
+	if err != nil || string(value.([]byte)) != "value" {
 		t.Error(err)
 		t.Error(value)
 	}
@@ -40,6 +55,4 @@ func TestCustomStorage(t *testing.T) {
 		t.Error(err)
 		t.Error(value2)
 	}
-
-	NewSource(storage)
 }

@@ -6,19 +6,26 @@ import (
 )
 
 // Define dummy storage
-type dummyStorage struct {
+type DummyStorage struct {
 	lock sync.RWMutex
 	list map[interface{}]interface{}
 	wait time.Duration
 }
 
-func (d *dummyStorage) Get(k interface{}) (interface{}, error) {
+func NewDummyStorage(wait time.Duration) (*DummyStorage, error) {
+	return &DummyStorage{
+		list: make(map[interface{}]interface{}, 0),
+		wait: wait,
+	}, nil
+}
+
+func (d *DummyStorage) Get(k interface{}) (interface{}, error) {
 	time.Sleep(d.wait * time.Millisecond)
 	d.lock.RLock()
 	defer d.lock.RUnlock()
 	return d.list[k], nil
 }
-func (d *dummyStorage) Add(k interface{}, v interface{}) error {
+func (d *DummyStorage) Add(k interface{}, v interface{}) error {
 	time.Sleep(d.wait * time.Millisecond)
 
 	d.lock.Lock()
@@ -26,7 +33,7 @@ func (d *dummyStorage) Add(k interface{}, v interface{}) error {
 	d.list[k] = v
 	return nil
 }
-func (d *dummyStorage) Remove(k interface{}) error {
+func (d *DummyStorage) Remove(k interface{}) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	delete(d.list, k)

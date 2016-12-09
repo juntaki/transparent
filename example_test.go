@@ -10,7 +10,7 @@ func Example() {
 	var err error
 	cacheLayer1, _ := transparent.NewLRUCache(10, 100)
 	cacheLayer2, _ := transparent.NewFilesystemCache(10, "/tmp")
-	sourceLayer := transparent.NewDummySource(10)
+	sourceLayer, _ := transparent.NewDummySource(10)
 	transparent.Stack(cacheLayer1, cacheLayer2)
 	transparent.Stack(cacheLayer2, sourceLayer)
 

@@ -8,12 +8,21 @@ import (
 )
 
 func TestConsensus(t *testing.T) {
-	twopc.DebugLevel = 3
+	//twopc.DebugLevel = 3
 	var err error
 	twopc.NewCoodinator()
-	src1 := NewDummySource(5)
-	src2 := NewDummySource(5)
-	src3 := NewDummySource(5)
+	src1, err := NewDummySource(5)
+	if err != nil {
+		t.Error(err)
+	}
+	src2, err := NewDummySource(5)
+	if err != nil {
+		t.Error(err)
+	}
+	src3, err := NewDummySource(5)
+	if err != nil {
+		t.Error(err)
+	}
 	a1 := NewTwoPCConsensus()
 	a2 := NewTwoPCConsensus()
 	a3 := NewTwoPCConsensus()
