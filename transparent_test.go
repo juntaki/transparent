@@ -8,6 +8,35 @@ import (
 	"time"
 )
 
+func basicLayerFunc(t *testing.T, l Layer) {
+	err := l.Set("test", []byte("value"))
+	if err != nil {
+		t.Error(err)
+	}
+
+	value, err := l.Get("test")
+	if err != nil || string(value.([]byte)) != "value" {
+		t.Error(err)
+		t.Error(value)
+	}
+
+	err = l.Remove("test")
+	if err != nil {
+		t.Error(err)
+	}
+
+	value, err = l.Get("test")
+	if err == nil {
+		t.Error(err)
+		t.Error(value)
+	}
+
+	err = l.Sync()
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 var dummySrc *Source
 var dummyCache *Cache
 
@@ -59,42 +88,6 @@ func TestStopFlusher(t *testing.T) {
 	if value != 99 {
 		t.Error(value)
 	}
-}
-
-// Simple Set and Get
-func TestSrc(t *testing.T) {
-	dummySrc.Set(100, "test")
-	value, err := dummySrc.Get(100)
-	if err != nil {
-		t.Error(err)
-	}
-	if value != "test" {
-		t.Error(value)
-	}
-	dummySrc.Remove(100)
-}
-
-// Tiered, Set and Get
-func TestCache(t *testing.T) {
-	dummySrc.Set(100, "test")
-	value, err := dummyCache.Get(100)
-	if err != nil {
-		t.Error(err)
-	}
-	if value != "test" {
-		t.Error(value)
-	}
-	dummyCache.Set(100, "test")
-	dummyCache.Sync()
-
-	value, err = dummyCache.Get(100)
-	if err != nil {
-		t.Error(err)
-	}
-	if value != "test" {
-		t.Error(value)
-	}
-	dummyCache.Remove(100)
 }
 
 func TestSync(t *testing.T) {

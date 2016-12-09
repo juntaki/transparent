@@ -186,6 +186,7 @@ func (c *Cache) Remove(key interface{}) (err error) {
 	}
 	// Queue to flush
 	c.log <- log{key, &operation{Value: nil, Message: messageRemove}}
+	c.Sync() // Remove must be synced
 	return nil
 }
 

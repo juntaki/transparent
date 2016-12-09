@@ -5,6 +5,24 @@ import (
 	"testing"
 )
 
+func basicStorageCommand(t *testing.T, storage Storage) {
+	err := storage.Add("test", []byte("value"))
+	if err != nil {
+		t.Error(err)
+	}
+	value, err := storage.Get("test")
+	if err != nil || string(value.([]byte)) != "value" {
+		t.Error(err)
+		t.Error(value)
+	}
+	storage.Remove("test")
+	value2, err := storage.Get("test")
+	if err == nil {
+		t.Error(err)
+		t.Error(value2)
+	}
+}
+
 func TestCustomStorage(t *testing.T) {
 	test := make(map[interface{}]interface{})
 
@@ -28,7 +46,7 @@ func TestCustomStorage(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	basicCommand(t, storage)
+	basicStorageCommand(t, storage)
 }
 
 func TestFilesystemStorage(t *testing.T) {
@@ -36,23 +54,17 @@ func TestFilesystemStorage(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	basicCommand(t, storage)
+	basicStorageCommand(t, storage)
 }
 
-func basicCommand(t *testing.T, storage Storage) {
-	err := storage.Add("test", []byte("value"))
+func TestS3Storage(t *testing.T) {
+	svc, err := newMockS3Client()
 	if err != nil {
 		t.Error(err)
 	}
-	value, err := storage.Get("test")
-	if err != nil || string(value.([]byte)) != "value" {
+	storage, err := NewS3Storage("bucket", svc)
+	if err != nil {
 		t.Error(err)
-		t.Error(value)
 	}
-	storage.Remove("test")
-	value2, err := storage.Get("test")
-	if err == nil {
-		t.Error(err)
-		t.Error(value2)
-	}
+	basicStorageCommand(t, storage)
 }

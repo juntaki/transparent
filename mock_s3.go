@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"io/ioutil"
-	"testing"
 
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
@@ -13,6 +12,14 @@ import (
 type mockS3Client struct {
 	s3iface.S3API
 	d *DummyStorage
+}
+
+func newMockS3Client() (*mockS3Client, error) {
+	dummy, err := NewDummyStorage(0)
+	if err != nil {
+		return nil, err
+	}
+	return &mockS3Client{d: dummy}, nil
 }
 
 func (m *mockS3Client) GetObject(i *s3.GetObjectInput) (*s3.GetObjectOutput, error) {
@@ -54,17 +61,4 @@ func (m *mockS3Client) DeleteObject(i *s3.DeleteObjectInput) (*s3.DeleteObjectOu
 		return nil, err
 	}
 	return &s3.DeleteObjectOutput{}, nil
-}
-
-func TestS3Storage(t *testing.T) {
-	dummy, err := NewDummyStorage(1)
-	if err != nil {
-		t.Error(err)
-	}
-
-	storage, err := NewS3Storage("bucket", &mockS3Client{d: dummy})
-	if err != nil {
-		t.Error(err)
-	}
-	basicCommand(t, storage)
 }
