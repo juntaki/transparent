@@ -2,7 +2,6 @@ package transparent
 
 import (
 	"testing"
-	"time"
 
 	"github.com/juntaki/transparent/twopc"
 )
@@ -11,15 +10,15 @@ func TestConsensus(t *testing.T) {
 	//twopc.DebugLevel = 3
 	var err error
 	twopc.NewCoodinator()
-	src1, err := NewDummySource(5)
+	src1, err := NewDummySource(0)
 	if err != nil {
 		t.Error(err)
 	}
-	src2, err := NewDummySource(5)
+	src2, err := NewDummySource(0)
 	if err != nil {
 		t.Error(err)
 	}
-	src3, err := NewDummySource(5)
+	src3, err := NewDummySource(0)
 	if err != nil {
 		t.Error(err)
 	}
@@ -29,6 +28,10 @@ func TestConsensus(t *testing.T) {
 	Stack(a1, src1)
 	Stack(a2, src2)
 	Stack(a3, src3)
+
+	basicLayerFunc(t, a1)
+	basicLayerFunc(t, a2)
+	basicLayerFunc(t, a3)
 
 	err = a1.Set("test1", "value1")
 	if err != nil {
@@ -48,8 +51,6 @@ func TestConsensus(t *testing.T) {
 		t.Error(err)
 	}
 
-	time.Sleep(3 * time.Second)
-
 	val, err := a1.Get("test1")
 	if err != nil {
 		t.Error(err)
@@ -62,8 +63,6 @@ func TestConsensus(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-
-	time.Sleep(3 * time.Second)
 
 	val, err = a1.Get("test1")
 	if err == nil {

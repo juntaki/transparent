@@ -119,12 +119,12 @@ func (c *Coodinator) Set(ctx context.Context, req *pb.SetRequest) (*pb.EmptyMess
 func (c *Coodinator) Connection(stream pb.Cluster_ConnectionServer) error {
 	// Assign clientID and tell current request ID
 	clientID := uint64(len(c.out))
+	c.lock.Lock()
 	m := &pb.Message{
 		ClientID:    clientID,
 		MessageType: pb.MessageType_ACK,
 		RequestID:   c.current,
 	}
-	c.lock.Lock()
 	c.out[clientID] = make(chan *pb.Message, 1)
 	c.lock.Unlock()
 	debugPrintln(5, "Server:Send", m)
@@ -195,10 +195,12 @@ func (c *Coodinator) run() {
 }
 
 func (c *Coodinator) initialize() {
+	c.lock.Lock()
 	c.status = stateInit
 	c.summary = make(map[uint64]*pb.Message)
 	c.ack = make(map[uint64]*pb.Message)
 	c.current++
+	c.lock.Unlock()
 }
 
 func (c *Coodinator) broadcast(m *pb.Message) {

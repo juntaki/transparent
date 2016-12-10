@@ -41,4 +41,5 @@ const (
 type operation struct {
 	Value   interface{}
 	Message message
+	UUID    string
 }
