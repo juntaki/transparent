@@ -13,7 +13,7 @@ Transparent cache and distributed commit to key-value store written in Go.
 ### Installation
 
 ~~~ sh
-Go get github.com/juntaki/transparent
+go get github.com/juntaki/transparent
 ~~~
 
 ### Basic usage
