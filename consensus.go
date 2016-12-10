@@ -16,7 +16,7 @@ import (
 // |transparent.Source| |transparent.Source|
 // -------------------- --------------------
 
-// Participant is interface to consensus algorhytm
+// Participant is interface to consensus algorithm
 type Participant interface {
 	Request(key interface{}, value interface{}) error
 }
