@@ -1,6 +1,9 @@
 package transparent
 
-import "errors"
+import (
+	"fmt"
+	"reflect"
+)
 
 // Storage defines the interface that backend data storage destination should have.
 // Add should not be failed.
@@ -10,40 +13,29 @@ type Storage interface {
 	Remove(key interface{}) error
 }
 
-// CustomStorage define customizable storage
-type CustomStorage struct {
-	getFunc    func(k interface{}) (interface{}, error)
-	addFunc    func(k interface{}, v interface{}) error
-	removeFunc func(k interface{}) error
+// StorageInvalidKeyError means type of key is invalid for storage
+type StorageInvalidKeyError struct {
+	valid   reflect.Type
+	invalid reflect.Type
 }
 
-// Get is customizable get function
-func (c *CustomStorage) Get(k interface{}) (interface{}, error) {
-	return c.getFunc(k)
+func (e *StorageInvalidKeyError) Error() string {
+	return fmt.Sprintf("%s is not supported key in the storage, use %s", e.invalid, e.valid)
 }
 
-// Add is customizable add function
-func (c *CustomStorage) Add(k interface{}, v interface{}) error {
-	return c.addFunc(k, v)
+// StorageInvalidValueError means type of value is invalid for storage
+type StorageInvalidValueError struct {
+	valid   reflect.Type
+	invalid reflect.Type
 }
 
-// Remove is customizable remove function
-func (c *CustomStorage) Remove(k interface{}) error {
-	return c.removeFunc(k)
+func (e *StorageInvalidValueError) Error() string {
+	return fmt.Sprintf("%s is not supported value in this simple storage, use %s", e.invalid, e.valid)
 }
 
-// NewCustomStorage returns CustomStorage
-func NewCustomStorage(
-	getFunc func(k interface{}) (interface{}, error),
-	addFunc func(k interface{}, v interface{}) error,
-	removeFunc func(k interface{}) error,
-) (*CustomStorage, error) {
-	if getFunc == nil || addFunc == nil || removeFunc == nil {
-		return nil, errors.New("function must be filled")
-	}
-	return &CustomStorage{
-		getFunc:    getFunc,
-		addFunc:    addFunc,
-		removeFunc: removeFunc,
-	}, nil
+// StorageKeyNotFoundError means key is not found in the storage
+type StorageKeyNotFoundError struct {
+	Key interface{}
 }
+
+func (e *StorageKeyNotFoundError) Error() string { return "requested key is not found" }

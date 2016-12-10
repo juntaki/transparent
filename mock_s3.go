@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io/ioutil"
 
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 )
@@ -28,7 +29,8 @@ func (m *mockS3Client) GetObject(i *s3.GetObjectInput) (*s3.GetObjectOutput, err
 	}
 	value, err := m.d.Get(*i.Key)
 	if err != nil {
-		return nil, err
+		aerr := awserr.New("NoSuchKey", "NoSuchKeyDummy", err)
+		return nil, aerr
 	}
 	body, ok := value.([]byte)
 	if !ok {

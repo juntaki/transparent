@@ -1,70 +1,102 @@
 package transparent
 
 import (
-	"errors"
+	"reflect"
 	"testing"
 )
 
-func basicStorageCommand(t *testing.T, storage Storage) {
+// Get, Add and Remove
+func basicStorageFunc(t *testing.T, storage Storage) {
+	// Add and Get
 	err := storage.Add("test", []byte("value"))
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	value, err := storage.Get("test")
 	if err != nil || string(value.([]byte)) != "value" {
-		t.Error(err)
-		t.Error(value)
+		t.Fatal(err, value)
 	}
+
+	// Remove and Get
 	storage.Remove("test")
 	value2, err := storage.Get("test")
-	if err == nil {
-		t.Error(err)
-		t.Error(value2)
-	}
-}
-
-func TestCustomStorage(t *testing.T) {
-	test := make(map[interface{}]interface{})
-
-	getFunc := func(k interface{}) (interface{}, error) {
-		value, ok := test[k]
-		if !ok {
-			return nil, errors.New("value not found")
+	storageErr, ok := err.(*StorageKeyNotFoundError)
+	if ok {
+		if storageErr.Key != "test" {
+			t.Fatal("key is different", storageErr.Key)
 		}
-		return value, nil
+	} else {
+		t.Fatal(err, value2)
 	}
-	addFunc := func(k interface{}, v interface{}) error {
-		test[k] = v
-		return nil
-	}
-	removeFunc := func(k interface{}) error {
-		delete(test, k)
-		return nil
-	}
-
-	storage, err := NewCustomStorage(getFunc, addFunc, removeFunc)
-	if err != nil {
-		t.Error(err)
-	}
-	basicStorageCommand(t, storage)
 }
 
-func TestFilesystemStorage(t *testing.T) {
-	storage, err := NewFilesystemStorage("/tmp")
-	if err != nil {
-		t.Error(err)
+func simpleStorageFunc(t *testing.T, storage Storage) {
+	var err error
+	err = storage.Add(0, []byte("value"))
+	if typeErr, ok := err.(*StorageInvalidKeyError); !ok {
+		t.Fatal(err)
+	} else if typeErr.invalid != reflect.TypeOf(0) {
+		t.Fatal(typeErr)
 	}
-	basicStorageCommand(t, storage)
+	err = storage.Add("test", 0)
+	if typeErr, ok := err.(*StorageInvalidValueError); !ok {
+		t.Fatal(err)
+	} else if typeErr.invalid != reflect.TypeOf(0) {
+		t.Fatal(typeErr)
+	}
+
+	_, err = storage.Get(0)
+	if typeErr, ok := err.(*StorageInvalidKeyError); !ok {
+		t.Fatal(err)
+	} else if typeErr.invalid != reflect.TypeOf(0) {
+		t.Fatal(typeErr)
+	}
+
+	err = storage.Remove(0)
+	if typeErr, ok := err.(*StorageInvalidKeyError); !ok {
+		t.Fatal(err)
+	} else if typeErr.invalid != reflect.TypeOf(0) {
+		t.Fatal(typeErr)
+	}
 }
 
-func TestS3Storage(t *testing.T) {
+func TestStorage(t *testing.T) {
+	var err error
+
+	// Dummy
+	ds, err := NewDummyStorage(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	basicStorageFunc(t, ds)
+
+	// Custom
+	ds, err = NewDummyStorage(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cs, err := NewCustomStorage(ds.Get, ds.Add, ds.Remove)
+	if err != nil {
+		t.Fatal(err)
+	}
+	basicStorageFunc(t, cs)
+
+	// Filesystem
+	fs, err := NewFilesystemStorage("/tmp")
+	if err != nil {
+		t.Fatal(err)
+	}
+	basicStorageFunc(t, fs)
+	simpleStorageFunc(t, fs)
+	// S3
 	svc, err := newMockS3Client()
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
-	storage, err := NewS3Storage("bucket", svc)
+	ss, err := NewS3Storage("bucket", svc)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
-	basicStorageCommand(t, storage)
+	basicStorageFunc(t, ss)
+	simpleStorageFunc(t, ss)
 }
