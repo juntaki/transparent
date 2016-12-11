@@ -63,7 +63,7 @@ func MyInit() {
 }
 
 func MyTeardown() {
-	DeleteCache(dummyCache)
+	dummyCache.Stop()
 }
 
 func TestStopFlusher(t *testing.T) {
@@ -79,7 +79,7 @@ func TestStopFlusher(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		cache.Set(i, i)
 	}
-	DeleteCache(cache)
+	cache.Stop()
 
 	value, err := cache.Get(99)
 	if err != nil {

@@ -33,27 +33,27 @@ func basicStorageFunc(t *testing.T, storage Storage) {
 func simpleStorageFunc(t *testing.T, storage Storage) {
 	var err error
 	err = storage.Add(0, []byte("value"))
-	if typeErr, ok := err.(*StorageInvalidKeyError); !ok {
+	if typeErr, ok := err.(*SimpleStorageInvalidKeyError); !ok {
 		t.Fatal(err)
 	} else if typeErr.invalid != reflect.TypeOf(0) {
 		t.Fatal(typeErr)
 	}
 	err = storage.Add("test", 0)
-	if typeErr, ok := err.(*StorageInvalidValueError); !ok {
+	if typeErr, ok := err.(*SimpleStorageInvalidValueError); !ok {
 		t.Fatal(err)
 	} else if typeErr.invalid != reflect.TypeOf(0) {
 		t.Fatal(typeErr)
 	}
 
 	_, err = storage.Get(0)
-	if typeErr, ok := err.(*StorageInvalidKeyError); !ok {
+	if typeErr, ok := err.(*SimpleStorageInvalidKeyError); !ok {
 		t.Fatal(err)
 	} else if typeErr.invalid != reflect.TypeOf(0) {
 		t.Fatal(typeErr)
 	}
 
 	err = storage.Remove(0)
-	if typeErr, ok := err.(*StorageInvalidKeyError); !ok {
+	if typeErr, ok := err.(*SimpleStorageInvalidKeyError); !ok {
 		t.Fatal(err)
 	} else if typeErr.invalid != reflect.TypeOf(0) {
 		t.Fatal(typeErr)
@@ -81,15 +81,33 @@ func TestStorage(t *testing.T) {
 	}
 	basicStorageFunc(t, cs)
 
+	fss, err := NewFilesystemSimpleStorage("/tmp")
+	if err != nil {
+		t.Fatal(err)
+	}
+	basicStorageFunc(t, fss)
+	simpleStorageFunc(t, fss)
+
 	// Filesystem
 	fs, err := NewFilesystemStorage("/tmp")
 	if err != nil {
 		t.Fatal(err)
 	}
 	basicStorageFunc(t, fs)
-	simpleStorageFunc(t, fs)
+
 	// S3
 	svc, err := newMockS3Client()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sss, err := NewS3SimpleStorage("bucket", svc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	basicStorageFunc(t, sss)
+	simpleStorageFunc(t, sss)
+
+	svc, err = newMockS3Client()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,5 +116,4 @@ func TestStorage(t *testing.T) {
 		t.Fatal(err)
 	}
 	basicStorageFunc(t, ss)
-	simpleStorageFunc(t, ss)
 }

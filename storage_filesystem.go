@@ -8,20 +8,28 @@ import (
 	"github.com/pkg/errors"
 )
 
-// FilesystemStorage store file at directory, filename is key
-type FilesystemStorage struct {
+// filesystemSimpleStorage store file at directory, filename is key
+type filesystemSimpleStorage struct {
 	directory string
 }
 
-// NewFilesystemStorage returns FilesystemStorage
-func NewFilesystemStorage(directory string) (*FilesystemStorage, error) {
-	return &FilesystemStorage{
+// NewFilesystemSimpleStorage returns filesystemSimpleStorage
+func NewFilesystemSimpleStorage(directory string) (Storage, error) {
+	return &filesystemSimpleStorage{
 		directory: directory + "/",
 	}, nil
 }
 
+// NewFilesystemStorage returns FilesystemStorage
+func NewFilesystemStorage(directory string) (Storage, error) {
+	return &simpleStorageWrapper{
+		Storage: &filesystemSimpleStorage{
+			directory: directory + "/",
+		}}, nil
+}
+
 // Get is file read
-func (f *FilesystemStorage) Get(k interface{}) (interface{}, error) {
+func (f *filesystemSimpleStorage) Get(k interface{}) (interface{}, error) {
 	filename, err := f.validateKey(k)
 	if err != nil {
 		return nil, err
@@ -37,7 +45,7 @@ func (f *FilesystemStorage) Get(k interface{}) (interface{}, error) {
 }
 
 // Add is file write
-func (f *FilesystemStorage) Add(k interface{}, v interface{}) error {
+func (f *filesystemSimpleStorage) Add(k interface{}, v interface{}) error {
 	filename, err := f.validateKey(k)
 	if err != nil {
 		return err
@@ -54,7 +62,7 @@ func (f *FilesystemStorage) Add(k interface{}, v interface{}) error {
 }
 
 // Remove is file unlink
-func (f *FilesystemStorage) Remove(k interface{}) error {
+func (f *filesystemSimpleStorage) Remove(k interface{}) error {
 	filename, err := f.validateKey(k)
 	if err != nil {
 		return err
@@ -66,10 +74,10 @@ func (f *FilesystemStorage) Remove(k interface{}) error {
 	return nil
 }
 
-func (f *FilesystemStorage) validateKey(k interface{}) (string, error) {
+func (f *filesystemSimpleStorage) validateKey(k interface{}) (string, error) {
 	key, ok := k.(string)
 	if !ok {
-		return "", &StorageInvalidKeyError{
+		return "", &SimpleStorageInvalidKeyError{
 			valid:   reflect.TypeOf((string)("")),
 			invalid: reflect.TypeOf(k),
 		}
@@ -77,10 +85,10 @@ func (f *FilesystemStorage) validateKey(k interface{}) (string, error) {
 	return key, nil
 }
 
-func (f *FilesystemStorage) validateValue(v interface{}) ([]byte, error) {
+func (f *filesystemSimpleStorage) validateValue(v interface{}) ([]byte, error) {
 	value, ok := v.([]byte)
 	if !ok {
-		return []byte{}, &StorageInvalidValueError{
+		return []byte{}, &SimpleStorageInvalidValueError{
 			valid:   reflect.TypeOf(([]byte)("")),
 			invalid: reflect.TypeOf(v),
 		}

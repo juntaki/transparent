@@ -12,7 +12,7 @@ import (
 
 type mockS3Client struct {
 	s3iface.S3API
-	d *DummyStorage
+	d Storage
 }
 
 func newMockS3Client() (*mockS3Client, error) {

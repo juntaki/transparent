@@ -13,22 +13,31 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 )
 
-// S3Storage store file to Amazon S3 as object
-type S3Storage struct {
+// NewS3Storage returns S3Storage
+func NewS3Storage(bucket string, svc s3iface.S3API) (Storage, error) {
+	return &simpleStorageWrapper{
+		Storage: &s3SimpleStorage{
+			svc:    svc,
+			bucket: aws.String(bucket),
+		}}, nil
+}
+
+// s3SimpleStorage store file to Amazon S3 as object
+type s3SimpleStorage struct {
 	svc    s3iface.S3API
 	bucket *string
 }
 
-// NewS3Storage returns S3Storage
-func NewS3Storage(bucket string, svc s3iface.S3API) (*S3Storage, error) {
-	return &S3Storage{
+// NewS3SimpleStorage returns s3SimpleStorage
+func NewS3SimpleStorage(bucket string, svc s3iface.S3API) (Storage, error) {
+	return &s3SimpleStorage{
 		svc:    svc,
 		bucket: aws.String(bucket),
 	}, nil
 }
 
 // Get is get request
-func (s *S3Storage) Get(k interface{}) (interface{}, error) {
+func (s *s3SimpleStorage) Get(k interface{}) (interface{}, error) {
 	key, err := s.validateKey(k)
 	if err != nil {
 		return nil, err
@@ -55,7 +64,7 @@ func (s *S3Storage) Get(k interface{}) (interface{}, error) {
 }
 
 // Add is set put request
-func (s *S3Storage) Add(k interface{}, v interface{}) error {
+func (s *s3SimpleStorage) Add(k interface{}, v interface{}) error {
 	key, err := s.validateKey(k)
 	if err != nil {
 		return err
@@ -78,7 +87,7 @@ func (s *S3Storage) Add(k interface{}, v interface{}) error {
 }
 
 // Remove is delete request
-func (s *S3Storage) Remove(k interface{}) error {
+func (s *s3SimpleStorage) Remove(k interface{}) error {
 	key, err := s.validateKey(k)
 	if err != nil {
 		return err
@@ -94,10 +103,10 @@ func (s *S3Storage) Remove(k interface{}) error {
 	return nil
 }
 
-func (s *S3Storage) validateKey(k interface{}) (string, error) {
+func (s *s3SimpleStorage) validateKey(k interface{}) (string, error) {
 	key, ok := k.(string)
 	if !ok {
-		return "", &StorageInvalidKeyError{
+		return "", &SimpleStorageInvalidKeyError{
 			valid:   reflect.TypeOf((string)("")),
 			invalid: reflect.TypeOf(k),
 		}
@@ -105,10 +114,10 @@ func (s *S3Storage) validateKey(k interface{}) (string, error) {
 	return key, nil
 }
 
-func (s *S3Storage) validateValue(v interface{}) ([]byte, error) {
+func (s *s3SimpleStorage) validateValue(v interface{}) ([]byte, error) {
 	value, ok := v.([]byte)
 	if !ok {
-		return []byte{}, &StorageInvalidValueError{
+		return []byte{}, &SimpleStorageInvalidValueError{
 			valid:   reflect.TypeOf(([]byte)("")),
 			invalid: reflect.TypeOf(v),
 		}

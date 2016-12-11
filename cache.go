@@ -40,11 +40,6 @@ func NewCache(bufferSize int, storage Storage) (*Cache, error) {
 	return c, nil
 }
 
-// DeleteCache clean up
-func DeleteCache(c *Cache) {
-	c.stopFlusher()
-}
-
 // StartFlusher starts flusher
 func (c *Cache) startFlusher() {
 	go c.flusher()
@@ -200,6 +195,11 @@ func (c *Cache) setLower(lower Layer) {
 	c.lower = lower
 }
 
+// Stop cleanup flusher
+func (c *Cache) Stop() {
+	c.stopFlusher()
+}
+
 // NewLRUCache returns LRUCache
 func NewLRUCache(bufferSize, cacheSize int) (*Cache, error) {
 	lru := lru.New(cacheSize)
@@ -213,7 +213,7 @@ func NewLRUCache(bufferSize, cacheSize int) (*Cache, error) {
 
 // NewS3Cache returns S3Cache
 func NewS3Cache(bufferSize int, bucket string, svc s3iface.S3API) (*Cache, error) {
-	s3, err := NewS3Storage(bucket, svc)
+	s3, err := NewS3SimpleStorage(bucket, svc)
 	if err != nil {
 		return nil, err
 	}
@@ -227,7 +227,7 @@ func NewS3Cache(bufferSize int, bucket string, svc s3iface.S3API) (*Cache, error
 
 // NewFilesystemCache returns FilesystemCache
 func NewFilesystemCache(bufferSize int, directory string) (*Cache, error) {
-	filesystem, err := NewFilesystemStorage(directory)
+	filesystem, err := NewFilesystemSimpleStorage(directory)
 	if err != nil {
 		return nil, err
 	}

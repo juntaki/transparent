@@ -13,23 +13,23 @@ type Storage interface {
 	Remove(key interface{}) error
 }
 
-// StorageInvalidKeyError means type of key is invalid for storage
-type StorageInvalidKeyError struct {
+// SimpleStorageInvalidKeyError means type of key is invalid for storage
+type SimpleStorageInvalidKeyError struct {
 	valid   reflect.Type
 	invalid reflect.Type
 }
 
-func (e *StorageInvalidKeyError) Error() string {
+func (e *SimpleStorageInvalidKeyError) Error() string {
 	return fmt.Sprintf("%s is not supported key in the storage, use %s", e.invalid, e.valid)
 }
 
-// StorageInvalidValueError means type of value is invalid for storage
-type StorageInvalidValueError struct {
+// SimpleStorageInvalidValueError means type of value is invalid for storage
+type SimpleStorageInvalidValueError struct {
 	valid   reflect.Type
 	invalid reflect.Type
 }
 
-func (e *StorageInvalidValueError) Error() string {
+func (e *SimpleStorageInvalidValueError) Error() string {
 	return fmt.Sprintf("%s is not supported value in this simple storage, use %s", e.invalid, e.valid)
 }
 

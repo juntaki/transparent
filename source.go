@@ -65,7 +65,7 @@ func NewDummySource(wait time.Duration) (*Source, error) {
 
 // NewS3Source returns S3Source
 func NewS3Source(bucket string, svc s3iface.S3API) (*Source, error) {
-	s3, err := NewS3Storage(bucket, svc)
+	s3, err := NewS3SimpleStorage(bucket, svc)
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +78,7 @@ func NewS3Source(bucket string, svc s3iface.S3API) (*Source, error) {
 
 // NewFilesystemSource returns FilesystemSource
 func NewFilesystemSource(directory string) (*Source, error) {
-	filesystem, err := NewFilesystemStorage(directory)
+	filesystem, err := NewFilesystemSimpleStorage(directory)
 	if err != nil {
 		return nil, err
 	}
