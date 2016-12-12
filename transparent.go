@@ -13,6 +13,47 @@
 //      `-[LRU]                               `-[S3]
 package transparent
 
+type Stack struct {
+	Layer
+	all []Layer
+}
+
+func NewStack() *Stack {
+	return &Stack{
+		all: []Layer{},
+	}
+}
+
+func (s *Stack) Stack(l Layer) error {
+	if s.Layer != nil {
+		l.setLower(s.Layer)
+		s.Layer.setUpper(l)
+	}
+	s.Layer = l
+	s.all = append(s.all, l)
+	return nil
+}
+
+func (s *Stack) Start() error {
+	for _, l := range s.all {
+		err := l.start()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Stack) Stop() error {
+	for _, l := range s.all {
+		err := l.stop()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Layer is stackable function
 type Layer interface {
 	Set(key interface{}, value interface{}) error
@@ -21,12 +62,8 @@ type Layer interface {
 	Sync() error
 	setUpper(Layer)
 	setLower(Layer)
-}
-
-// Stack stacks layers
-func Stack(upper Layer, lower Layer) {
-	upper.setLower(lower)
-	lower.setUpper(upper)
+	start() error
+	stop() error
 }
 
 // message passing between layer or its internals

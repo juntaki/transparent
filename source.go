@@ -1,11 +1,6 @@
 package transparent
 
-import (
-	"errors"
-	"time"
-
-	"github.com/aws/aws-sdk-go/service/s3/s3iface"
-)
+import "errors"
 
 // Source provides operation of TransparentSource
 type Source struct {
@@ -53,38 +48,10 @@ func (s *Source) setLower(lower Layer) {
 	panic("don't set lower layer")
 }
 
-// NewDummySource returns dummyStorage layer
-func NewDummySource(wait time.Duration) (*Source, error) {
-	dummy, err := NewDummyStorage(wait)
-	if err != nil {
-		return nil, err
-	}
-	layer, _ := NewSource(dummy)
-	return layer, nil
+func (s *Source) start() error {
+	return nil
 }
 
-// NewS3Source returns S3Source
-func NewS3Source(bucket string, svc s3iface.S3API) (*Source, error) {
-	s3, err := NewS3SimpleStorage(bucket, svc)
-	if err != nil {
-		return nil, err
-	}
-	layer, err := NewSource(s3)
-	if err != nil {
-		return nil, err
-	}
-	return layer, nil
-}
-
-// NewFilesystemSource returns FilesystemSource
-func NewFilesystemSource(directory string) (*Source, error) {
-	filesystem, err := NewFilesystemSimpleStorage(directory)
-	if err != nil {
-		return nil, err
-	}
-	layer, err := NewSource(filesystem)
-	if err != nil {
-		return nil, err
-	}
-	return layer, nil
+func (s *Source) stop() error {
+	return nil
 }

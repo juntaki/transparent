@@ -1,29 +1,31 @@
-package transparent
+package simple
 
 import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/gob"
 	"fmt"
+	"reflect"
 
+	"github.com/juntaki/transparent"
 	"github.com/pkg/errors"
 )
 
-type simpleStorageWrapper struct {
-	Storage
+type StorageWrapper struct {
+	transparent.Storage
 }
 
 // Get is file read
-func (f *simpleStorageWrapper) Get(k interface{}) (interface{}, error) {
+func (f *StorageWrapper) Get(k interface{}) (interface{}, error) {
 	key, err := f.encodeKey(k)
 	if err != nil {
 		return nil, err
 	}
 	v, err := f.Storage.Get(key)
 	if err != nil {
-		_, ok := err.(*StorageKeyNotFoundError)
+		_, ok := err.(*transparent.StorageKeyNotFoundError)
 		if ok {
-			return nil, &StorageKeyNotFoundError{Key: k}
+			return nil, &transparent.StorageKeyNotFoundError{Key: k}
 		}
 		return nil, err
 	}
@@ -35,7 +37,7 @@ func (f *simpleStorageWrapper) Get(k interface{}) (interface{}, error) {
 }
 
 // Add is file write
-func (f *simpleStorageWrapper) Add(k interface{}, v interface{}) error {
+func (f *StorageWrapper) Add(k interface{}, v interface{}) error {
 	key, err := f.encodeKey(k)
 	if err != nil {
 		return err
@@ -52,7 +54,7 @@ func (f *simpleStorageWrapper) Add(k interface{}, v interface{}) error {
 }
 
 // Remove is file unlink
-func (f *simpleStorageWrapper) Remove(k interface{}) error {
+func (f *StorageWrapper) Remove(k interface{}) error {
 	key, err := f.encodeKey(k)
 	if err != nil {
 		return err
@@ -64,7 +66,7 @@ func (f *simpleStorageWrapper) Remove(k interface{}) error {
 	return nil
 }
 
-func (f *simpleStorageWrapper) encodeKey(k interface{}) (string, error) {
+func (f *StorageWrapper) encodeKey(k interface{}) (string, error) {
 	gob.Register(k)
 	buf := new(bytes.Buffer)
 	encoder := gob.NewEncoder(buf)
@@ -76,7 +78,7 @@ func (f *simpleStorageWrapper) encodeKey(k interface{}) (string, error) {
 	return key, nil
 }
 
-func (f *simpleStorageWrapper) encodeValue(v interface{}) ([]byte, error) {
+func (f *StorageWrapper) encodeValue(v interface{}) ([]byte, error) {
 	gob.Register(v)
 	buf := new(bytes.Buffer)
 	encoder := gob.NewEncoder(buf)
@@ -87,7 +89,7 @@ func (f *simpleStorageWrapper) encodeValue(v interface{}) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (f *simpleStorageWrapper) decodeValue(v []byte) (interface{}, error) {
+func (f *StorageWrapper) decodeValue(v []byte) (interface{}, error) {
 	var d interface{}
 	buf := bytes.NewBuffer(v)
 	decoder := gob.NewDecoder(buf)
@@ -96,4 +98,24 @@ func (f *simpleStorageWrapper) decodeValue(v []byte) (interface{}, error) {
 		return nil, errors.Wrap(cause, "failed to decode value")
 	}
 	return d, nil
+}
+
+// StorageInvalidKeyError means type of key is invalid for storage
+type StorageInvalidKeyError struct {
+	Valid   reflect.Type
+	Invalid reflect.Type
+}
+
+func (e *StorageInvalidKeyError) Error() string {
+	return fmt.Sprintf("%s is not supported key in the storage, use %s", e.Invalid, e.Valid)
+}
+
+// StorageInvalidValueError means type of value is invalid for storage
+type StorageInvalidValueError struct {
+	Valid   reflect.Type
+	Invalid reflect.Type
+}
+
+func (e *StorageInvalidValueError) Error() string {
+	return fmt.Sprintf("%s is not supported value in this simple storage, use %s", e.Invalid, e.Valid)
 }

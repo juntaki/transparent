@@ -1,22 +1,26 @@
-package transparent
+package s3
 
 import (
 	"bytes"
 	"errors"
 	"io/ioutil"
+	"testing"
 
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
+	"github.com/juntaki/transparent"
+	"github.com/juntaki/transparent/dummy"
+	test "github.com/juntaki/transparent/test"
 )
 
 type mockS3Client struct {
 	s3iface.S3API
-	d Storage
+	d transparent.Storage
 }
 
 func newMockS3Client() (*mockS3Client, error) {
-	dummy, err := NewDummyStorage(0)
+	dummy, err := dummy.NewStorage(0)
 	if err != nil {
 		return nil, err
 	}
@@ -63,4 +67,53 @@ func (m *mockS3Client) DeleteObject(i *s3.DeleteObjectInput) (*s3.DeleteObjectOu
 		return nil, err
 	}
 	return &s3.DeleteObjectOutput{}, nil
+}
+
+func TestStorage(t *testing.T) {
+	var err error
+
+	// S3
+	svc, err := newMockS3Client()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sss, err := NewSimpleStorage("bucket", svc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	test.BasicStorageFunc(t, sss)
+	test.SimpleStorageFunc(t, sss)
+
+	svc, err = newMockS3Client()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ss, err := NewStorage("bucket", svc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	test.BasicStorageFunc(t, ss)
+
+	svc, err = newMockS3Client()
+	if err != nil {
+		t.Error(err)
+	}
+	l, err := NewSource("bucket", svc)
+	if err != nil {
+		t.Error(err)
+	}
+
+	stack := transparent.NewStack()
+	stack.Stack(l)
+	test.BasicStackFunc(t, stack)
+
+	svc, err = newMockS3Client()
+	if err != nil {
+		t.Error(err)
+	}
+	c, err := NewCache(10, "bucket", svc)
+	if err != nil {
+		t.Error(err)
+	}
+	test.BasicCacheFunc(t, c)
 }

@@ -1,35 +1,37 @@
-package transparent
+package filesystem
 
 import (
 	"io/ioutil"
 	"os"
 	"reflect"
 
+	"github.com/juntaki/transparent"
+	"github.com/juntaki/transparent/simple"
 	"github.com/pkg/errors"
 )
 
 // filesystemSimpleStorage store file at directory, filename is key
-type filesystemSimpleStorage struct {
+type simpleStorage struct {
 	directory string
 }
 
 // NewFilesystemSimpleStorage returns filesystemSimpleStorage
-func NewFilesystemSimpleStorage(directory string) (Storage, error) {
-	return &filesystemSimpleStorage{
+func NewSimpleStorage(directory string) (transparent.Storage, error) {
+	return &simpleStorage{
 		directory: directory + "/",
 	}, nil
 }
 
 // NewFilesystemStorage returns FilesystemStorage
-func NewFilesystemStorage(directory string) (Storage, error) {
-	return &simpleStorageWrapper{
-		Storage: &filesystemSimpleStorage{
+func NewStorage(directory string) (transparent.Storage, error) {
+	return &simple.StorageWrapper{
+		Storage: &simpleStorage{
 			directory: directory + "/",
 		}}, nil
 }
 
 // Get is file read
-func (f *filesystemSimpleStorage) Get(k interface{}) (interface{}, error) {
+func (f *simpleStorage) Get(k interface{}) (interface{}, error) {
 	filename, err := f.validateKey(k)
 	if err != nil {
 		return nil, err
@@ -37,7 +39,7 @@ func (f *filesystemSimpleStorage) Get(k interface{}) (interface{}, error) {
 	data, cause := ioutil.ReadFile(f.directory + filename)
 	if cause != nil {
 		if os.IsNotExist(cause) {
-			return nil, &StorageKeyNotFoundError{Key: filename}
+			return nil, &transparent.StorageKeyNotFoundError{Key: filename}
 		}
 		return nil, errors.Wrapf(cause, "failed to read file. filename = %s", filename)
 	}
@@ -45,7 +47,7 @@ func (f *filesystemSimpleStorage) Get(k interface{}) (interface{}, error) {
 }
 
 // Add is file write
-func (f *filesystemSimpleStorage) Add(k interface{}, v interface{}) error {
+func (f *simpleStorage) Add(k interface{}, v interface{}) error {
 	filename, err := f.validateKey(k)
 	if err != nil {
 		return err
@@ -62,7 +64,7 @@ func (f *filesystemSimpleStorage) Add(k interface{}, v interface{}) error {
 }
 
 // Remove is file unlink
-func (f *filesystemSimpleStorage) Remove(k interface{}) error {
+func (f *simpleStorage) Remove(k interface{}) error {
 	filename, err := f.validateKey(k)
 	if err != nil {
 		return err
@@ -74,23 +76,23 @@ func (f *filesystemSimpleStorage) Remove(k interface{}) error {
 	return nil
 }
 
-func (f *filesystemSimpleStorage) validateKey(k interface{}) (string, error) {
+func (f *simpleStorage) validateKey(k interface{}) (string, error) {
 	key, ok := k.(string)
 	if !ok {
-		return "", &SimpleStorageInvalidKeyError{
-			valid:   reflect.TypeOf((string)("")),
-			invalid: reflect.TypeOf(k),
+		return "", &simple.StorageInvalidKeyError{
+			Valid:   reflect.TypeOf((string)("")),
+			Invalid: reflect.TypeOf(k),
 		}
 	}
 	return key, nil
 }
 
-func (f *filesystemSimpleStorage) validateValue(v interface{}) ([]byte, error) {
+func (f *simpleStorage) validateValue(v interface{}) ([]byte, error) {
 	value, ok := v.([]byte)
 	if !ok {
-		return []byte{}, &SimpleStorageInvalidValueError{
-			valid:   reflect.TypeOf(([]byte)("")),
-			invalid: reflect.TypeOf(v),
+		return []byte{}, &simple.StorageInvalidValueError{
+			Valid:   reflect.TypeOf(([]byte)("")),
+			Invalid: reflect.TypeOf(v),
 		}
 	}
 	return value, nil

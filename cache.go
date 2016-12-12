@@ -3,9 +3,6 @@ package transparent
 import (
 	"errors"
 	"time"
-
-	"github.com/aws/aws-sdk-go/service/s3/s3iface"
-	lru "github.com/juntaki/transparent/lru"
 )
 
 // Cache provides operation of TransparentCache
@@ -26,7 +23,7 @@ type log struct {
 }
 
 // NewCache returns Cache layer.
-func NewCache(bufferSize int, storage Storage) (*Cache, error) {
+func NewCacheLayer(bufferSize int, storage Storage) (*Cache, error) {
 	if storage == nil {
 		return nil, errors.New("empty storage")
 	}
@@ -41,14 +38,16 @@ func NewCache(bufferSize int, storage Storage) (*Cache, error) {
 }
 
 // StartFlusher starts flusher
-func (c *Cache) startFlusher() {
+func (c *Cache) start() error {
 	go c.flusher()
+	return nil
 }
 
 // StopFlusher stops flusher
-func (c *Cache) stopFlusher() {
+func (c *Cache) stop() error {
 	close(c.log)
 	<-c.done
+	return nil
 }
 
 type buffer struct {
@@ -193,48 +192,4 @@ func (c *Cache) setUpper(upper Layer) {
 // SetLower set lower layer
 func (c *Cache) setLower(lower Layer) {
 	c.lower = lower
-}
-
-// Stop cleanup flusher
-func (c *Cache) Stop() {
-	c.stopFlusher()
-}
-
-// NewLRUCache returns LRUCache
-func NewLRUCache(bufferSize, cacheSize int) (*Cache, error) {
-	lru := lru.New(cacheSize)
-	layer, err := NewCache(bufferSize, lru)
-	if err != nil {
-		return nil, err
-	}
-	layer.startFlusher()
-	return layer, nil
-}
-
-// NewS3Cache returns S3Cache
-func NewS3Cache(bufferSize int, bucket string, svc s3iface.S3API) (*Cache, error) {
-	s3, err := NewS3SimpleStorage(bucket, svc)
-	if err != nil {
-		return nil, err
-	}
-	layer, err := NewCache(bufferSize, s3)
-	if err != nil {
-		return nil, err
-	}
-	layer.startFlusher()
-	return layer, nil
-}
-
-// NewFilesystemCache returns FilesystemCache
-func NewFilesystemCache(bufferSize int, directory string) (*Cache, error) {
-	filesystem, err := NewFilesystemSimpleStorage(directory)
-	if err != nil {
-		return nil, err
-	}
-	layer, err := NewCache(bufferSize, filesystem)
-	if err != nil {
-		return nil, err
-	}
-	layer.startFlusher()
-	return layer, nil
 }

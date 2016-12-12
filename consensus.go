@@ -4,7 +4,6 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/juntaki/transparent/twopc"
 	uuid "github.com/satori/go.uuid"
 )
 
@@ -21,6 +20,12 @@ type Participant interface {
 	Request(key interface{}, value interface{}) error
 }
 
+func NewConsensus() *Consensus {
+	return &Consensus{
+		inFlight: make(map[string]chan error),
+	}
+}
+
 // Consensus layer provide transactional write to cluster.
 // There is no storage, the layer of only forward.
 type Consensus struct {
@@ -29,15 +34,6 @@ type Consensus struct {
 	upper       Layer
 	lower       Layer
 	Participant Participant
-}
-
-// NewTwoPCConsensus returns Two phase commit consensus layer
-func NewTwoPCConsensus() *Consensus {
-	c := &Consensus{inFlight: make(map[string]chan error)}
-	participant := twopc.NewParticipant(c.commit)
-	c.Participant = participant
-
-	return c
 }
 
 // Set send a request to cluster
@@ -123,7 +119,7 @@ func (d *Consensus) Sync() (err error) {
 }
 
 // commit should be callback function of message receiver
-func (d *Consensus) commit(key interface{}, value interface{}) (err error) {
+func (d *Consensus) Commit(key interface{}, value interface{}) (err error) {
 	err = nil
 	operation, ok := value.(operation)
 	if !ok {
@@ -159,4 +155,12 @@ func (d *Consensus) setUpper(upper Layer) {
 // SetLower set lower layer
 func (d *Consensus) setLower(lower Layer) {
 	d.lower = lower
+}
+
+func (d *Consensus) start() error {
+	return nil
+}
+
+func (d *Consensus) stop() error {
+	return nil
 }
