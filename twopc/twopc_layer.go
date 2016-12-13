@@ -2,10 +2,10 @@ package twopc
 
 import "github.com/juntaki/transparent"
 
-// NewTwoPCConsensus returns Two phase commit consensus layer
-func NewConsensus() *transparent.Consensus {
+// NewConsensus returns Two phase commit consensus layer
+func NewConsensus(serverAddr string) *transparent.Consensus {
 	c := transparent.NewConsensus()
-	participant := NewParticipant(c.Commit)
+	participant := NewParticipant(serverAddr, c.Commit)
 	c.Participant = participant
 
 	return c

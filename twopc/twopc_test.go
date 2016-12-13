@@ -7,7 +7,8 @@ import (
 
 func TestServer(t *testing.T) {
 	DebugLevel = 3
-	NewCoodinator()
+	serverAddr := "localhost:8888"
+	NewCoodinator(serverAddr)
 
 	array1 := [][]interface{}{}
 	commit1 := func(key, value interface{}) error {
@@ -30,9 +31,9 @@ func TestServer(t *testing.T) {
 		{"testkey2", "testvalue2"},
 		{"testkey3", "testvalue3"},
 	}
-	a1 := NewParticipant(commit1)
-	a2 := NewParticipant(commit2)
-	a3 := NewParticipant(commit3)
+	a1 := NewParticipant(serverAddr, commit1)
+	a2 := NewParticipant(serverAddr, commit2)
+	a3 := NewParticipant(serverAddr, commit3)
 
 	a1.Request("testkey1", "testvalue1")
 	a2.Request("testkey2", "testvalue2")

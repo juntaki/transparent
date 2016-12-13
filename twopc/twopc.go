@@ -74,7 +74,7 @@ type Coodinator struct {
 }
 
 // NewCoodinator returns started Coodinator
-func NewCoodinator() *Coodinator {
+func NewCoodinator(serverAddr string) *Coodinator {
 	c := &Coodinator{
 		timeout: 1000,
 		in:      make(chan *pb.Message, 1),
@@ -84,14 +84,14 @@ func NewCoodinator() *Coodinator {
 		status:  stateInit,
 	}
 	started := make(chan bool)
-	go c.start(started)
+	go c.start(serverAddr, started)
 	<-started
 	return c
 }
 
 // StartServ Starts cluster coodinator
-func (c *Coodinator) start(started chan bool) {
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", 8080))
+func (c *Coodinator) start(address string, started chan bool) {
+	lis, err := net.Listen("tcp", address)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 
@@ -284,14 +284,14 @@ func (c *Coodinator) voteRequest(r *pb.SetRequest) (commit bool) {
 }
 
 // NewParticipant returns started Participant
-func NewParticipant(commitfunc func(key, value interface{}) error) *Participant {
+func NewParticipant(serverAddr string, committer func(key, value interface{}) error) *Participant {
 	p := &Participant{
-		commitfunc: commitfunc,
-		timeout:    1000, //millisecond
+		committer: committer,
+		timeout:   1000, //millisecond
 	}
 
 	started := make(chan bool)
-	go p.start(started)
+	go p.start(serverAddr, started)
 	<-started
 	return p
 }
@@ -306,7 +306,7 @@ type Participant struct {
 	clientID       uint64
 	currentRequest *pb.Message
 	client         pb.ClusterClient
-	commitfunc     func(key, value interface{}) error
+	committer      func(key, value interface{}) error
 }
 
 // SetTimeout change timeout default is 1000 milliseconds
@@ -315,8 +315,7 @@ func (a *Participant) SetTimeout(millisecond time.Duration) {
 }
 
 // start start participant service
-func (a *Participant) start(started chan bool) {
-	serverAddr := "127.0.0.1:8080"
+func (a *Participant) start(serverAddr string, started chan bool) {
 	conn, err := grpc.Dial(serverAddr, grpc.WithInsecure())
 	if err != nil {
 		debugPrintln(5, err)
@@ -424,7 +423,7 @@ func (a *Participant) commit() error {
 		return err
 	}
 	debugPrintln(1, "Client Commit", a.clientID, kv)
-	return a.commitfunc(kv.Key, kv.Value)
+	return a.committer(kv.Key, kv.Value)
 }
 
 func (a *Participant) decode(encoded []byte) (*keyValue, error) {

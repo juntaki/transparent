@@ -11,7 +11,8 @@ import (
 func TestConsensus(t *testing.T) {
 	//twopc.DebugLevel = 3
 	var err error
-	NewCoodinator()
+	serverAddr := "localhost:8080"
+	NewCoodinator(serverAddr)
 	src1, err := dummy.NewSource(0)
 	if err != nil {
 		t.Error(err)
@@ -24,9 +25,9 @@ func TestConsensus(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	a1 := NewConsensus()
-	a2 := NewConsensus()
-	a3 := NewConsensus()
+	a1 := NewConsensus(serverAddr)
+	a2 := NewConsensus(serverAddr)
+	a3 := NewConsensus(serverAddr)
 
 	s1 := transparent.NewStack()
 	s2 := transparent.NewStack()
