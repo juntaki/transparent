@@ -23,7 +23,7 @@ type log struct {
 }
 
 // NewCache returns Cache layer.
-func NewCacheLayer(bufferSize int, storage Storage) (*Cache, error) {
+func NewCache(bufferSize int, storage Storage) (*Cache, error) {
 	if storage == nil {
 		return nil, errors.New("empty storage")
 	}
@@ -37,13 +37,11 @@ func NewCacheLayer(bufferSize int, storage Storage) (*Cache, error) {
 	return c, nil
 }
 
-// StartFlusher starts flusher
 func (c *Cache) start() error {
 	go c.flusher()
 	return nil
 }
 
-// StopFlusher stops flusher
 func (c *Cache) stop() error {
 	close(c.log)
 	<-c.done
@@ -185,11 +183,13 @@ func (c *Cache) Remove(key interface{}) (err error) {
 }
 
 // SetUpper set upper layer
-func (c *Cache) setUpper(upper Layer) {
+func (c *Cache) setUpper(upper Layer) error {
 	c.upper = upper
+	return nil
 }
 
 // SetLower set lower layer
-func (c *Cache) setLower(lower Layer) {
+func (c *Cache) setLower(lower Layer) error {
 	c.lower = lower
+	return nil
 }

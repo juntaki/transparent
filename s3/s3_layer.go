@@ -11,7 +11,7 @@ func NewCache(bufferSize int, bucket string, svc s3iface.S3API) (*transparent.Ca
 	if err != nil {
 		return nil, err
 	}
-	layer, err := transparent.NewCacheLayer(bufferSize, s3)
+	layer, err := transparent.NewCache(bufferSize, s3)
 	if err != nil {
 		return nil, err
 	}

@@ -1,4 +1,5 @@
-package dummy
+// Package test is simple wrapper of map[interface{}]interface{} for mock
+package test
 
 import (
 	"sync"
@@ -7,19 +8,18 @@ import (
 	"github.com/juntaki/transparent"
 )
 
-// dummyStorage is simple wrapper of map[interface{}]interface{} for mock
 type storage struct {
 	lock sync.RWMutex
 	list map[interface{}]interface{}
 	wait time.Duration
 }
 
-// NewDummyStorage returns dummy storage
-func NewStorage(wait time.Duration) (transparent.Storage, error) {
+// NewStorage returns Storage
+func NewStorage(wait time.Duration) transparent.Storage {
 	return &storage{
 		list: make(map[interface{}]interface{}, 0),
 		wait: wait,
-	}, nil
+	}
 }
 
 // Get returns value from map
@@ -29,7 +29,7 @@ func (d *storage) Get(k interface{}) (interface{}, error) {
 	defer d.lock.RUnlock()
 	value, ok := d.list[k]
 	if !ok {
-		return nil, &transparent.StorageKeyNotFoundError{Key: k}
+		return nil, &transparent.KeyNotFoundError{Key: k}
 	}
 	return value, nil
 }

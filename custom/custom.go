@@ -6,14 +6,13 @@ import (
 	"github.com/juntaki/transparent"
 )
 
-// customStorage define customizable storage
 type storage struct {
 	getFunc    func(k interface{}) (interface{}, error)
 	addFunc    func(k interface{}, v interface{}) error
 	removeFunc func(k interface{}) error
 }
 
-// NewCustomStorage returns customStorage
+// NewStorage returns Storage
 func NewStorage(
 	getFunc func(k interface{}) (interface{}, error),
 	addFunc func(k interface{}, v interface{}) error,

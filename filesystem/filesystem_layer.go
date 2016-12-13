@@ -2,28 +2,16 @@ package filesystem
 
 import "github.com/juntaki/transparent"
 
-// NewFilesystemCache returns FilesystemCache
-func NewCache(bufferSize int, directory string) (*transparent.Cache, error) {
-	filesystem, err := NewSimpleStorage(directory)
-	if err != nil {
-		return nil, err
-	}
-	layer, err := transparent.NewCacheLayer(bufferSize, filesystem)
-	if err != nil {
-		return nil, err
-	}
-	return layer, nil
+// NewCache returns FilesystemCache
+func NewCache(bufferSize int, directory string) *transparent.Cache {
+	filesystem := NewSimpleStorage(directory)
+	layer, _ := transparent.NewCache(bufferSize, filesystem)
+	return layer
 }
 
-// NewFilesystemSource returns FilesystemSource
-func NewSource(directory string) (*transparent.Source, error) {
-	filesystem, err := NewSimpleStorage(directory)
-	if err != nil {
-		return nil, err
-	}
-	layer, err := transparent.NewSource(filesystem)
-	if err != nil {
-		return nil, err
-	}
-	return layer, nil
+// NewSource returns FilesystemSource
+func NewSource(directory string) *transparent.Source {
+	filesystem := NewSimpleStorage(directory)
+	layer, _ := transparent.NewSource(filesystem)
+	return layer
 }

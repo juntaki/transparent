@@ -10,24 +10,25 @@ import (
 	"github.com/pkg/errors"
 )
 
-// filesystemSimpleStorage store file at directory, filename is key
+// simpleStorage store file at directory, filename is key
 type simpleStorage struct {
 	directory string
 }
 
-// NewFilesystemSimpleStorage returns filesystemSimpleStorage
-func NewSimpleStorage(directory string) (transparent.Storage, error) {
+// NewSimpleStorage returns SimpleStorage
+// SimpleStorage only accepts string key and []byte value.
+func NewSimpleStorage(directory string) transparent.Storage {
 	return &simpleStorage{
 		directory: directory + "/",
-	}, nil
+	}
 }
 
-// NewFilesystemStorage returns FilesystemStorage
-func NewStorage(directory string) (transparent.Storage, error) {
+// NewStorage returns Storage
+func NewStorage(directory string) transparent.Storage {
 	return &simple.StorageWrapper{
 		Storage: &simpleStorage{
 			directory: directory + "/",
-		}}, nil
+		}}
 }
 
 // Get is file read
@@ -39,7 +40,7 @@ func (f *simpleStorage) Get(k interface{}) (interface{}, error) {
 	data, cause := ioutil.ReadFile(f.directory + filename)
 	if cause != nil {
 		if os.IsNotExist(cause) {
-			return nil, &transparent.StorageKeyNotFoundError{Key: filename}
+			return nil, &transparent.KeyNotFoundError{Key: filename}
 		}
 		return nil, errors.Wrapf(cause, "failed to read file. filename = %s", filename)
 	}

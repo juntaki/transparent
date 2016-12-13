@@ -148,13 +148,15 @@ func (d *Consensus) Commit(key interface{}, value interface{}) (err error) {
 }
 
 // SetUpper set upper layer
-func (d *Consensus) setUpper(upper Layer) {
+func (d *Consensus) setUpper(upper Layer) error {
 	d.upper = upper
+	return nil
 }
 
 // SetLower set lower layer
-func (d *Consensus) setLower(lower Layer) {
+func (d *Consensus) setLower(lower Layer) error {
 	d.lower = lower
+	return nil
 }
 
 func (d *Consensus) start() error {

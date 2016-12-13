@@ -23,9 +23,9 @@ func (f *StorageWrapper) Get(k interface{}) (interface{}, error) {
 	}
 	v, err := f.Storage.Get(key)
 	if err != nil {
-		_, ok := err.(*transparent.StorageKeyNotFoundError)
+		_, ok := err.(*transparent.KeyNotFoundError)
 		if ok {
-			return nil, &transparent.StorageKeyNotFoundError{Key: k}
+			return nil, &transparent.KeyNotFoundError{Key: k}
 		}
 		return nil, err
 	}

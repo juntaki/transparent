@@ -1,11 +1,10 @@
-package transparent_test
+package test
 
 import (
 	"reflect"
 	"testing"
 
 	"github.com/juntaki/transparent"
-	"github.com/juntaki/transparent/dummy"
 	"github.com/juntaki/transparent/simple"
 )
 
@@ -54,7 +53,7 @@ func BasicStorageFunc(t *testing.T, storage transparent.Storage) {
 	// Remove and Get
 	storage.Remove("test")
 	value2, err := storage.Get("test")
-	storageErr, ok := err.(*transparent.StorageKeyNotFoundError)
+	storageErr, ok := err.(*transparent.KeyNotFoundError)
 	if ok {
 		if storageErr.Key != "test" {
 			t.Fatal("key is different", storageErr.Key)
@@ -64,45 +63,72 @@ func BasicStorageFunc(t *testing.T, storage transparent.Storage) {
 	}
 }
 
-func BasicStackFunc(t *testing.T, l *transparent.Stack) {
-	err := l.Set("test", []byte("value"))
+func BasicStackFunc(t *testing.T, s *transparent.Stack) {
+	err := s.Set("test", []byte("value"))
 	if err != nil {
 		t.Error(err)
 	}
 
-	value, err := l.Get("test")
+	value, err := s.Get("test")
 	if err != nil || string(value.([]byte)) != "value" {
 		t.Error(err)
 		t.Error(value)
 	}
 
-	err = l.Remove("test")
+	err = s.Remove("test")
 	if err != nil {
 		t.Error(err)
 	}
 
-	value, err = l.Get("test")
+	value, err = s.Get("test")
 	if err == nil {
 		t.Error(err)
 		t.Error(value)
 	}
 
-	err = l.Sync()
+	err = s.Sync()
 	if err != nil {
 		t.Error(err)
 	}
 }
 
 func BasicCacheFunc(t *testing.T, c *transparent.Cache) {
-	s, err := dummy.NewSource(0)
-	if err != nil {
-		t.Error(err)
-	}
-
+	s := NewSource(0)
 	stack := transparent.NewStack()
 	stack.Stack(s)
 	stack.Stack(c)
 	stack.Start()
 	BasicStackFunc(t, stack)
 	stack.Stop()
+}
+
+func BasicSourceFunc(t *testing.T, s *transparent.Source) {
+	stack := transparent.NewStack()
+	stack.Stack(s)
+	stack.Start()
+	BasicStackFunc(t, stack)
+	stack.Stop()
+}
+
+func BasicConsensusFunc(t *testing.T, a1, a2 *transparent.Consensus) {
+	src1 := NewSource(0)
+	src2 := NewSource(0)
+
+	s1 := transparent.NewStack()
+	s2 := transparent.NewStack()
+
+	s1.Stack(src1)
+	s2.Stack(src2)
+
+	s1.Stack(a1)
+	s2.Stack(a2)
+
+	s1.Start()
+	s2.Start()
+
+	BasicStackFunc(t, s1)
+	BasicStackFunc(t, s2)
+
+	s1.Stop()
+	s2.Stop()
 }

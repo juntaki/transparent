@@ -3,12 +3,12 @@
 package lru
 
 import (
-	"errors"
 	"sync"
+
+	"github.com/juntaki/transparent"
 )
 
-// Cache is compatible LRU for transparent.BackendCache
-type Cache struct {
+type storage struct {
 	hash           map[interface{}]*keyValue
 	lock           sync.RWMutex
 	listHead       *keyValue
@@ -23,9 +23,9 @@ type keyValue struct {
 	next  *keyValue
 }
 
-// New returns empty LRU Cache
-func New(maxEntries int) *Cache {
-	c := &Cache{
+// NewStorage returns LRU Storage
+func NewStorage(maxEntries int) transparent.Storage {
+	c := &storage{
 		hash:           make(map[interface{}]*keyValue),
 		currentEntries: 0,
 		maxEntries:     maxEntries,
@@ -39,7 +39,7 @@ func New(maxEntries int) *Cache {
 }
 
 // Get value from cache if exist
-func (c *Cache) Get(key interface{}) (value interface{}, err error) {
+func (c *storage) Get(key interface{}) (value interface{}, err error) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 	if kv, ok := c.hash[key]; ok {
@@ -49,11 +49,11 @@ func (c *Cache) Get(key interface{}) (value interface{}, err error) {
 		}
 		return kv.value, nil
 	}
-	return nil, errors.New("value not found")
+	return nil, &transparent.KeyNotFoundError{Key: key}
 }
 
 // Add value to cache
-func (c *Cache) Add(key interface{}, value interface{}) (err error) {
+func (c *storage) Add(key interface{}, value interface{}) (err error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	if kv, ok := c.hash[key]; ok {
@@ -82,7 +82,7 @@ func (c *Cache) Add(key interface{}, value interface{}) (err error) {
 }
 
 // Remove value from cache
-func (c *Cache) Remove(key interface{}) (err error) {
+func (c *storage) Remove(key interface{}) (err error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	if kv, ok := c.hash[key]; ok {

@@ -40,12 +40,13 @@ func (s *Source) Sync() error {
 	return nil
 }
 
-func (s *Source) setUpper(upper Layer) {
+func (s *Source) setUpper(upper Layer) error {
 	s.upper = upper
+	return nil
 }
 
-func (s *Source) setLower(lower Layer) {
-	panic("don't set lower layer")
+func (s *Source) setLower(lower Layer) error {
+	return errors.New("don't set lower layer")
 }
 
 func (s *Source) start() error {

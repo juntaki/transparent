@@ -31,9 +31,18 @@ func TestServer(t *testing.T) {
 		{"testkey2", "testvalue2"},
 		{"testkey3", "testvalue3"},
 	}
-	a1 := NewParticipant(serverAddr, commit1)
-	a2 := NewParticipant(serverAddr, commit2)
-	a3 := NewParticipant(serverAddr, commit3)
+	a1, err := NewParticipant(serverAddr, commit1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a2, err := NewParticipant(serverAddr, commit2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a3, err := NewParticipant(serverAddr, commit3)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	a1.Request("testkey1", "testvalue1")
 	a2.Request("testkey2", "testvalue2")

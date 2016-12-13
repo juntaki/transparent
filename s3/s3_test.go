@@ -10,8 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/juntaki/transparent"
-	"github.com/juntaki/transparent/dummy"
-	test "github.com/juntaki/transparent/test"
+	"github.com/juntaki/transparent/test"
 )
 
 type mockS3Client struct {
@@ -20,11 +19,8 @@ type mockS3Client struct {
 }
 
 func newMockS3Client() (*mockS3Client, error) {
-	dummy, err := dummy.NewStorage(0)
-	if err != nil {
-		return nil, err
-	}
-	return &mockS3Client{d: dummy}, nil
+	test := test.NewStorage(0)
+	return &mockS3Client{d: test}, nil
 }
 
 func (m *mockS3Client) GetObject(i *s3.GetObjectInput) (*s3.GetObjectOutput, error) {

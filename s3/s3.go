@@ -53,7 +53,7 @@ func (s *simpleStorage) Get(k interface{}) (interface{}, error) {
 	if cause != nil {
 		if aerr, ok := cause.(awserr.Error); ok {
 			if aerr.Code() == "NoSuchKey" {
-				return nil, &transparent.StorageKeyNotFoundError{Key: key}
+				return nil, &transparent.KeyNotFoundError{Key: key}
 			}
 		}
 		return nil, errors.Wrapf(cause, "GetObject failed. key = %s", key)

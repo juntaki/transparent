@@ -4,36 +4,40 @@
 // Transparent Cache is tearable. In addition to caching, it is also possible to
 // transparently use a layer of synchronization between distributed systems.
 // See subpackage for example.
-//
-//  [Application]
-//    |
-//    v Get/Set
-//  [Transparent cache] -[Flush buffer]-> [Next cache]
-//   `-[backend cache]                     `-[Source cache]
-//      `-[LRU]                               `-[S3]
+
 package transparent
 
+// Stack is stacked layer
 type Stack struct {
 	Layer
 	all []Layer
 }
 
+// NewStack returns Stack
 func NewStack() *Stack {
 	return &Stack{
 		all: []Layer{},
 	}
 }
 
+// Stack add the layer to Stack
 func (s *Stack) Stack(l Layer) error {
 	if s.Layer != nil {
-		l.setLower(s.Layer)
-		s.Layer.setUpper(l)
+		err := l.setLower(s.Layer)
+		if err != nil {
+			return err
+		}
+		err = s.Layer.setUpper(l)
+		if err != nil {
+			return err
+		}
 	}
 	s.Layer = l
 	s.all = append(s.all, l)
 	return nil
 }
 
+// Start initialize all stacked layers
 func (s *Stack) Start() error {
 	for _, l := range s.all {
 		err := l.start()
@@ -44,6 +48,7 @@ func (s *Stack) Start() error {
 	return nil
 }
 
+// Stop clean up all stacked layers
 func (s *Stack) Stop() error {
 	for _, l := range s.all {
 		err := l.stop()
@@ -60,8 +65,8 @@ type Layer interface {
 	Get(key interface{}) (value interface{}, err error)
 	Remove(key interface{}) error
 	Sync() error
-	setUpper(Layer)
-	setLower(Layer)
+	setUpper(Layer) error
+	setLower(Layer) error
 	start() error
 	stop() error
 }
@@ -80,3 +85,10 @@ type operation struct {
 	Message message
 	UUID    string
 }
+
+// KeyNotFoundError means specified key is not found in the layer
+type KeyNotFoundError struct {
+	Key interface{}
+}
+
+func (e *KeyNotFoundError) Error() string { return "requested key is not found" }

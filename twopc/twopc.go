@@ -6,7 +6,6 @@ import (
 	"encoding/gob"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"sync"
 	"time"
@@ -74,7 +73,7 @@ type Coodinator struct {
 }
 
 // NewCoodinator returns started Coodinator
-func NewCoodinator(serverAddr string) *Coodinator {
+func NewCoodinator(serverAddr string) (*Coodinator, error) {
 	c := &Coodinator{
 		timeout: 1000,
 		in:      make(chan *pb.Message, 1),
@@ -83,24 +82,24 @@ func NewCoodinator(serverAddr string) *Coodinator {
 		request: make(chan *pb.SetRequest, 10),
 		status:  stateInit,
 	}
-	started := make(chan bool)
+	started := make(chan error)
 	go c.start(serverAddr, started)
-	<-started
-	return c
+	err := <-started
+	return c, err
 }
 
 // StartServ Starts cluster coodinator
-func (c *Coodinator) start(address string, started chan bool) {
+func (c *Coodinator) start(address string, started chan error) {
 	lis, err := net.Listen("tcp", address)
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
-
+		started <- err
+		return
 	}
 	grpcServer := grpc.NewServer()
 	pb.RegisterClusterServer(grpcServer, c)
 
 	go c.run()
-	started <- true
+	started <- nil
 	grpcServer.Serve(lis)
 }
 
@@ -284,16 +283,16 @@ func (c *Coodinator) voteRequest(r *pb.SetRequest) (commit bool) {
 }
 
 // NewParticipant returns started Participant
-func NewParticipant(serverAddr string, committer func(key, value interface{}) error) *Participant {
+func NewParticipant(serverAddr string, committer func(key, value interface{}) error) (*Participant, error) {
 	p := &Participant{
 		committer: committer,
 		timeout:   1000, //millisecond
 	}
 
-	started := make(chan bool)
+	started := make(chan error)
 	go p.start(serverAddr, started)
-	<-started
-	return p
+	err := <-started
+	return p, err
 }
 
 // Participant manage its resource
@@ -315,26 +314,34 @@ func (a *Participant) SetTimeout(millisecond time.Duration) {
 }
 
 // start start participant service
-func (a *Participant) start(serverAddr string, started chan bool) {
+func (a *Participant) start(serverAddr string, started chan error) {
 	conn, err := grpc.Dial(serverAddr, grpc.WithInsecure())
 	if err != nil {
-		debugPrintln(5, err)
+		started <- err
+		return
 	}
 	defer conn.Close()
 	client := pb.NewClusterClient(conn)
 	a.client = client
 	stream, err := client.Connection(context.Background())
+	if err != nil {
+		started <- err
+		return
+	}
 
 	// Get ID from server
 	in, err := stream.Recv()
 	debugPrintln(5, "Client:Recv", a.clientID, in)
 	if err == io.EOF {
+		started <- err
 		return
 	}
 	if err != nil {
+		started <- err
 		return
 	}
 	if in.MessageType != pb.MessageType_ACK {
+		started <- err
 		return
 	}
 	a.current = in.RequestID
@@ -350,9 +357,11 @@ func (a *Participant) start(serverAddr string, started chan bool) {
 			in, err := stream.Recv()
 			debugPrintln(5, "Client:Recv", a.clientID, in)
 			if err == io.EOF {
+				started <- err
 				return
 			}
 			if err != nil {
+				started <- err
 				return
 			}
 			a.in <- in
@@ -375,7 +384,7 @@ func (a *Participant) start(serverAddr string, started chan bool) {
 
 	go a.mainLoop()
 
-	started <- true
+	started <- nil
 	<-recv
 	<-send
 	stream.CloseSend()

@@ -8,36 +8,24 @@ import (
 )
 
 func TestFilesystemSimpleStorage(t *testing.T) {
-	fss, err := NewSimpleStorage("/tmp")
-	if err != nil {
-		t.Fatal(err)
-	}
+	fss := NewSimpleStorage("/tmp")
 	test.BasicStorageFunc(t, fss)
 	test.SimpleStorageFunc(t, fss)
 }
 
 func TestFilesystemStorage(t *testing.T) {
-	fs, err := NewStorage("/tmp")
-	if err != nil {
-		t.Fatal(err)
-	}
+	fs := NewStorage("/tmp")
 	test.BasicStorageFunc(t, fs)
 }
 
 func TestFilesystemSource(t *testing.T) {
-	l, err := NewSource("/tmp")
-	if err != nil {
-		t.Error(err)
-	}
+	l := NewSource("/tmp")
 	stack := transparent.NewStack()
 	stack.Stack(l)
 	test.BasicStackFunc(t, stack)
 }
 
 func TestFilesystemCache(t *testing.T) {
-	c, err := NewCache(10, "/tmp")
-	if err != nil {
-		t.Error(err)
-	}
+	c := NewCache(10, "/tmp")
 	test.BasicCacheFunc(t, c)
 }
