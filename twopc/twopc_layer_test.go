@@ -7,7 +7,7 @@ import (
 )
 
 func TestConsensus(t *testing.T) {
-	//twopc.DebugLevel = 3
+	DebugLevel = 3
 	serverAddr := "localhost:8080"
 	_, err := NewCoodinator(serverAddr)
 	if err != nil {

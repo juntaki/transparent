@@ -3,6 +3,8 @@ package twopc
 import (
 	"testing"
 	"time"
+
+	"github.com/juntaki/transparent"
 )
 
 func TestServer(t *testing.T) {
@@ -11,18 +13,18 @@ func TestServer(t *testing.T) {
 	NewCoodinator(serverAddr)
 
 	array1 := [][]interface{}{}
-	commit1 := func(key, value interface{}) error {
-		array1 = append(array1, []interface{}{key, value})
+	commit1 := func(op *transparent.Message) error {
+		array1 = append(array1, []interface{}{op.Key, op.Value})
 		return nil
 	}
 	array2 := [][]interface{}{}
-	commit2 := func(key, value interface{}) error {
-		array2 = append(array2, []interface{}{key, value})
+	commit2 := func(op *transparent.Message) error {
+		array2 = append(array2, []interface{}{op.Key, op.Value})
 		return nil
 	}
 	array3 := [][]interface{}{}
-	commit3 := func(key, value interface{}) error {
-		array3 = append(array3, []interface{}{key, value})
+	commit3 := func(op *transparent.Message) error {
+		array3 = append(array3, []interface{}{op.Key, op.Value})
 		return nil
 	}
 
@@ -44,9 +46,9 @@ func TestServer(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	a1.Request("testkey1", "testvalue1")
-	a2.Request("testkey2", "testvalue2")
-	a3.Request("testkey3", "testvalue3")
+	a1.Request(&transparent.Message{Key: "testkey1", Value: "testvalue1"})
+	a2.Request(&transparent.Message{Key: "testkey2", Value: "testvalue2"})
+	a3.Request(&transparent.Message{Key: "testkey3", Value: "testvalue3"})
 
 	time.Sleep(3 * time.Second)
 
@@ -69,7 +71,7 @@ func TestServer(t *testing.T) {
 }
 
 func TestEncode(t *testing.T) {
-	kv := &keyValue{
+	kv := &transparent.Message{
 		Key:   "testKey",
 		Value: "testValue",
 	}
@@ -88,4 +90,5 @@ func TestEncode(t *testing.T) {
 	if kv == kv2 {
 		t.Error(kv, kv2)
 	}
+
 }

@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/juntaki/transparent"
-	test "github.com/juntaki/transparent/test"
+	"github.com/juntaki/transparent/test"
 )
 
 func TestFilesystemSimpleStorage(t *testing.T) {

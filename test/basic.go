@@ -8,6 +8,7 @@ import (
 	"github.com/juntaki/transparent/simple"
 )
 
+// SimpleStorageFunc is Error message test for simple Storage
 func SimpleStorageFunc(t *testing.T, storage transparent.Storage) {
 	var err error
 	err = storage.Add(0, []byte("value"))
@@ -38,7 +39,7 @@ func SimpleStorageFunc(t *testing.T, storage transparent.Storage) {
 	}
 }
 
-// Get, Add and Remove
+// BasicStorageFunc is Get, Add and Remove
 func BasicStorageFunc(t *testing.T, storage transparent.Storage) {
 	// Add and Get
 	err := storage.Add("test", []byte("value"))
@@ -63,6 +64,7 @@ func BasicStorageFunc(t *testing.T, storage transparent.Storage) {
 	}
 }
 
+// BasicStackFunc is Get Remove and Sync
 func BasicStackFunc(t *testing.T, s *transparent.Stack) {
 	err := s.Set("test", []byte("value"))
 	if err != nil {
@@ -92,7 +94,8 @@ func BasicStackFunc(t *testing.T, s *transparent.Stack) {
 	}
 }
 
-func BasicCacheFunc(t *testing.T, c *transparent.Cache) {
+// BasicCacheFunc is test for transparent.Cache
+func BasicCacheFunc(t *testing.T, c *transparent.LayerCache) {
 	s := NewSource(0)
 	stack := transparent.NewStack()
 	stack.Stack(s)
@@ -102,7 +105,8 @@ func BasicCacheFunc(t *testing.T, c *transparent.Cache) {
 	stack.Stop()
 }
 
-func BasicSourceFunc(t *testing.T, s *transparent.Source) {
+// BasicSourceFunc is test for transparent.Source
+func BasicSourceFunc(t *testing.T, s *transparent.LayerSource) {
 	stack := transparent.NewStack()
 	stack.Stack(s)
 	stack.Start()
@@ -110,7 +114,17 @@ func BasicSourceFunc(t *testing.T, s *transparent.Source) {
 	stack.Stop()
 }
 
-func BasicConsensusFunc(t *testing.T, a1, a2 *transparent.Consensus) {
+// BasicTransmitterFunc is test for transparent.Transmitter
+func BasicTransmitterFunc(t *testing.T, s *transparent.LayerTransmitter) {
+	stack := transparent.NewStack()
+	stack.Stack(s)
+	stack.Start()
+	BasicStackFunc(t, stack)
+	stack.Stop()
+}
+
+// BasicConsensusFunc is test for transparent.Consensus
+func BasicConsensusFunc(t *testing.T, a1, a2 *transparent.LayerConsensus) {
 	src1 := NewSource(0)
 	src2 := NewSource(0)
 

@@ -15,40 +15,35 @@ import (
 // |transparent.Source| |transparent.Source|
 // -------------------- --------------------
 
-// Participant is interface to consensus algorithm
-type Participant interface {
-	Request(key interface{}, value interface{}) error
-}
-
-func NewConsensus() *Consensus {
-	return &Consensus{
+func NewLayerConsensus() *LayerConsensus {
+	return &LayerConsensus{
 		inFlight: make(map[string]chan error),
 	}
 }
 
-// Consensus layer provide transactional write to cluster.
+// LayerConsensus layer provide transactional write to cluster.
 // There is no storage, the layer of only forward.
-type Consensus struct {
+type LayerConsensus struct {
 	lock        sync.Mutex
 	inFlight    map[string]chan error
-	upper       Layer
-	lower       Layer
-	Participant Participant
+	next       Layer
+	Transmitter Transmitter
 }
 
 // Set send a request to cluster
-func (d *Consensus) Set(key interface{}, value interface{}) (err error) {
+func (d *LayerConsensus) Set(key interface{}, value interface{}) (err error) {
 	uuid := uuid.NewV4().String()
 	channel := make(chan error)
 	d.lock.Lock()
 	d.inFlight[uuid] = channel
 	d.lock.Unlock()
-	operation := operation{
+	operation := &Message{
+		Key:     key,
 		Value:   value,
-		Message: messageSet,
+		Message: MessageSet,
 		UUID:    uuid,
 	}
-	err = d.Participant.Request(key, operation)
+	_, err = d.Transmitter.Request(operation)
 	if err != nil {
 		return err
 	}
@@ -59,13 +54,13 @@ func (d *Consensus) Set(key interface{}, value interface{}) (err error) {
 	return err
 }
 
-// Get just get the value from lower layer
-func (d *Consensus) Get(key interface{}) (value interface{}, err error) {
+// Get just get the value from next layer
+func (d *LayerConsensus) Get(key interface{}) (value interface{}, err error) {
 	// Recursively get value from list.
-	if d.lower == nil {
-		return nil, errors.New("lower layer not found")
+	if d.next == nil {
+		return nil, errors.New("next layer not found")
 	}
-	value, err = d.lower.Get(key)
+	value, err = d.next.Get(key)
 	if err != nil {
 		return nil, err
 	}
@@ -73,18 +68,19 @@ func (d *Consensus) Get(key interface{}) (value interface{}, err error) {
 }
 
 // Remove send a request to cluster
-func (d *Consensus) Remove(key interface{}) (err error) {
+func (d *LayerConsensus) Remove(key interface{}) (err error) {
 	uuid := uuid.NewV4().String()
 	channel := make(chan error)
 	d.lock.Lock()
 	d.inFlight[uuid] = channel
 	d.lock.Unlock()
-	operation := operation{
+	operation := &Message{
+		Key:     key,
 		Value:   nil,
-		Message: messageRemove,
+		Message: MessageRemove,
 		UUID:    uuid,
 	}
-	err = d.Participant.Request(key, operation)
+	_, err = d.Transmitter.Request(operation)
 	if err != nil {
 		return err
 	}
@@ -96,18 +92,19 @@ func (d *Consensus) Remove(key interface{}) (err error) {
 }
 
 // Sync send a request to cluster
-func (d *Consensus) Sync() (err error) {
+func (d *LayerConsensus) Sync() (err error) {
 	uuid := uuid.NewV4().String()
 	channel := make(chan error)
 	d.lock.Lock()
 	d.inFlight[uuid] = channel
 	d.lock.Unlock()
-	operation := operation{
+	operation := &Message{
+		Key:     nil,
 		Value:   nil,
-		Message: messageSync,
+		Message: MessageSync,
 		UUID:    uuid,
 	}
-	err = d.Participant.Request(nil, operation)
+	_, err = d.Transmitter.Request(operation)
 	if err != nil {
 		return err
 	}
@@ -119,27 +116,24 @@ func (d *Consensus) Sync() (err error) {
 }
 
 // commit should be callback function of message receiver
-func (d *Consensus) Commit(key interface{}, value interface{}) (err error) {
+func (d *LayerConsensus) Commit(op *Message) (err error) {
 	err = nil
-	operation, ok := value.(operation)
-	if !ok {
-		return errors.New("value should be operation")
+	key := op.Key
+	if d.next == nil {
+		err = errors.New("next layer not found")
 	}
-	if d.lower == nil {
-		err = errors.New("lower layer not found")
-	}
-	switch operation.Message {
-	case messageSync:
-		err = d.lower.Sync()
-	case messageRemove:
-		err = d.lower.Remove(key)
-	case messageSet:
-		err = d.lower.Set(key, operation.Value)
+	switch op.Message {
+	case MessageSync:
+		err = d.next.Sync()
+	case MessageRemove:
+		err = d.next.Remove(key)
+	case MessageSet:
+		err = d.next.Set(key, op.Value)
 	default:
 		err = errors.New("unknown message")
 	}
 	d.lock.Lock()
-	channel, ok := d.inFlight[operation.UUID]
+	channel, ok := d.inFlight[op.UUID]
 	d.lock.Unlock()
 	if ok {
 		channel <- err
@@ -147,22 +141,16 @@ func (d *Consensus) Commit(key interface{}, value interface{}) (err error) {
 	return err
 }
 
-// SetUpper set upper layer
-func (d *Consensus) setUpper(upper Layer) error {
-	d.upper = upper
+// SetNext set next layer
+func (d *LayerConsensus) setNext(next Layer) error {
+	d.next = next
 	return nil
 }
 
-// SetLower set lower layer
-func (d *Consensus) setLower(lower Layer) error {
-	d.lower = lower
-	return nil
+func (d *LayerConsensus) start() error {
+	return d.Transmitter.Start()
 }
 
-func (d *Consensus) start() error {
-	return nil
-}
-
-func (d *Consensus) stop() error {
-	return nil
+func (d *LayerConsensus) stop() error {
+	return d.Transmitter.Stop()
 }

@@ -7,8 +7,8 @@ import (
 )
 
 // NewSource returns Source
-func NewSource(wait time.Duration) *transparent.Source {
+func NewSource(wait time.Duration) *transparent.LayerSource {
 	test := NewStorage(wait)
-	layer, _ := transparent.NewSource(test)
+	layer, _ := transparent.NewLayerSource(test)
 	return layer
 }

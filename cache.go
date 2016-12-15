@@ -5,29 +5,28 @@ import (
 	"time"
 )
 
-// Cache provides operation of TransparentCache
-type Cache struct {
+// LayerCache provides operation of TransparentCache
+type LayerCache struct {
 	Storage Storage   // Target cache
 	log     chan log  // Channel buffer
 	sync    chan bool // Control for flush buffer
 	synced  chan bool
 	done    chan bool
-	upper   Layer
-	lower   Layer
+	next    Layer
 }
 
 // Flush buffer use this struct in its log channel
 type log struct {
 	key interface{}
-	*operation
+	*Message
 }
 
-// NewCache returns Cache layer.
-func NewCache(bufferSize int, storage Storage) (*Cache, error) {
+// NewLayerCache returns Cache layer.
+func NewLayerCache(bufferSize int, storage Storage) (*LayerCache, error) {
 	if storage == nil {
 		return nil, errors.New("empty storage")
 	}
-	c := &Cache{
+	c := &LayerCache{
 		log:     make(chan log, bufferSize),
 		done:    make(chan bool, 1),
 		sync:    make(chan bool, 1),
@@ -37,29 +36,29 @@ func NewCache(bufferSize int, storage Storage) (*Cache, error) {
 	return c, nil
 }
 
-func (c *Cache) start() error {
+func (c *LayerCache) start() error {
 	go c.flusher()
 	return nil
 }
 
-func (c *Cache) stop() error {
+func (c *LayerCache) stop() error {
 	close(c.log)
 	<-c.done
 	return nil
 }
 
 type buffer struct {
-	queue map[interface{}]*operation
-	c     *Cache
+	queue map[interface{}]*Message
+	c     *LayerCache
 	limit int
 }
 
 func (b *buffer) reset() {
-	b.queue = make(map[interface{}]*operation)
+	b.queue = make(map[interface{}]*Message)
 }
 
 func (b *buffer) add(l *log) {
-	b.queue[l.key] = l.operation
+	b.queue[l.key] = l.Message
 }
 func (b *buffer) checkLimit() {
 	if len(b.queue) > b.limit {
@@ -70,17 +69,17 @@ func (b *buffer) checkLimit() {
 func (b *buffer) flush() {
 	for k, o := range b.queue {
 		switch o.Message {
-		case messageRemove:
-			b.c.lower.Remove(k)
-		case messageSet:
-			b.c.lower.Set(k, o.Value)
+		case MessageRemove:
+			b.c.next.Remove(k)
+		case MessageSet:
+			b.c.next.Set(k, o.Value)
 		}
 	}
 	b.reset()
 }
 
 // Flusher
-func (c *Cache) flusher() {
+func (c *LayerCache) flusher() {
 	b := buffer{c: c, limit: 5}
 	b.reset()
 done:
@@ -107,9 +106,9 @@ done:
 			old.flusher()
 			<-old.done
 
-			// Lower, recursively
-			if old.lower != nil {
-				old.lower.Sync()
+			// Next, recursively
+			if old.next != nil {
+				old.next.Sync()
 			}
 			c.synced <- true
 		case <-time.After(time.Second * 1):
@@ -124,15 +123,15 @@ done:
 }
 
 // Get value from cache, or if not found, recursively get.
-func (c *Cache) Get(key interface{}) (value interface{}, err error) {
+func (c *LayerCache) Get(key interface{}) (value interface{}, err error) {
 	// Try to get backend cache
 	value, err = c.Storage.Get(key)
 	if err != nil {
-		if c.lower == nil {
+		if c.next == nil {
 			return nil, errors.New("value not found")
 		}
 		// Recursively get value from list.
-		value, err = c.lower.Get(key)
+		value, err = c.next.Get(key)
 		if err != nil {
 			return nil, err
 		}
@@ -145,51 +144,45 @@ func (c *Cache) Get(key interface{}) (value interface{}, err error) {
 }
 
 // Set set new value to Storage.
-func (c *Cache) Set(key interface{}, value interface{}) (err error) {
+func (c *LayerCache) Set(key interface{}, value interface{}) (err error) {
 	err = c.Storage.Add(key, value)
 	if err != nil {
 		return err
 	}
-	if c.lower == nil {
+	if c.next == nil {
 		// This backend cache is final destination
 		return nil
 	}
 	// Queue to flush
-	c.log <- log{key, &operation{Value: value, Message: messageSet}}
+	c.log <- log{key, &Message{Value: value, Message: MessageSet}}
 	return nil
 }
 
 // Sync current buffered value
-func (c *Cache) Sync() error {
+func (c *LayerCache) Sync() error {
 	c.sync <- true
 	<-c.synced
 	return nil
 }
 
-// Remove recursively remove lower layer's value
-func (c *Cache) Remove(key interface{}) (err error) {
+// Remove recursively remove next layer's value
+func (c *LayerCache) Remove(key interface{}) (err error) {
 	err = c.Storage.Remove(key)
 	if err != nil {
 		return err
 	}
-	if c.lower == nil {
+	if c.next == nil {
 		// This is bottom layer
 		return nil
 	}
 	// Queue to flush
-	c.log <- log{key, &operation{Value: nil, Message: messageRemove}}
+	c.log <- log{key, &Message{Value: nil, Message: MessageRemove}}
 	c.Sync() // Remove must be synced
 	return nil
 }
 
-// SetUpper set upper layer
-func (c *Cache) setUpper(upper Layer) error {
-	c.upper = upper
-	return nil
-}
-
-// SetLower set lower layer
-func (c *Cache) setLower(lower Layer) error {
-	c.lower = lower
+// SetNext set next layer
+func (c *LayerCache) setNext(next Layer) error {
+	c.next = next
 	return nil
 }

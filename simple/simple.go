@@ -119,3 +119,29 @@ type StorageInvalidValueError struct {
 func (e *StorageInvalidValueError) Error() string {
 	return fmt.Sprintf("%s is not supported value in this simple storage, use %s", e.Invalid, e.Valid)
 }
+
+// Validator is
+type Validator struct {
+}
+
+func (s *Validator) ValidateKey(k interface{}) (string, error) {
+	key, ok := k.(string)
+	if !ok {
+		return "", &StorageInvalidKeyError{
+			Valid:   reflect.TypeOf((string)("")),
+			Invalid: reflect.TypeOf(k),
+		}
+	}
+	return key, nil
+}
+
+func (s *Validator) ValidateValue(v interface{}) ([]byte, error) {
+	value, ok := v.([]byte)
+	if !ok {
+		return []byte{}, &StorageInvalidValueError{
+			Valid:   reflect.TypeOf(([]byte)("")),
+			Invalid: reflect.TypeOf(v),
+		}
+	}
+	return value, nil
+}

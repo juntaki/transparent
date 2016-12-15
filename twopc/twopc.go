@@ -14,6 +14,7 @@ import (
 
 	"google.golang.org/grpc"
 
+	"github.com/juntaki/transparent"
 	pb "github.com/juntaki/transparent/twopc/pb"
 )
 
@@ -283,7 +284,7 @@ func (c *Coodinator) voteRequest(r *pb.SetRequest) (commit bool) {
 }
 
 // NewParticipant returns started Participant
-func NewParticipant(serverAddr string, committer func(key, value interface{}) error) (*Participant, error) {
+func NewParticipant(serverAddr string, committer func(operation *transparent.Message) error) (*Participant, error) {
 	p := &Participant{
 		committer: committer,
 		timeout:   1000, //millisecond
@@ -305,7 +306,7 @@ type Participant struct {
 	clientID       uint64
 	currentRequest *pb.Message
 	client         pb.ClusterClient
-	committer      func(key, value interface{}) error
+	committer      func(operation *transparent.Message) error
 }
 
 // SetTimeout change timeout default is 1000 milliseconds
@@ -390,32 +391,30 @@ func (a *Participant) start(serverAddr string, started chan error) {
 	stream.CloseSend()
 }
 
-type keyValue struct {
-	Key   interface{}
-	Value interface{}
+func (a *Participant) Start() error {
+	return nil
+}
+func (a *Participant) Stop() error {
+	return nil
 }
 
 // Request send request to Coodinator
-func (a *Participant) Request(key interface{}, value interface{}) error {
-	kv := &keyValue{
-		Key:   key,
-		Value: value,
-	}
-	request, err := a.encode(kv)
+func (a *Participant) Request(operation *transparent.Message) (*transparent.Message, error) {
+	request, err := a.encode(operation)
 	if err != nil {
 		debugPrintln(1, "Encode error", err)
-		return err
+		return nil, err
 	}
-	debugPrintln(1, "Client Set", kv)
+	debugPrintln(1, "Client Set", operation)
 	_, err = a.client.Set(context.Background(), request)
-	return err
+	return nil, err
 }
 
-func (a *Participant) encode(kv *keyValue) (*pb.SetRequest, error) {
-	gob.Register(kv.Value)
+func (a *Participant) encode(operation *transparent.Message) (*pb.SetRequest, error) {
+	gob.Register(operation)
 	buf := new(bytes.Buffer)
 	encoder := gob.NewEncoder(buf)
-	err := encoder.Encode(kv)
+	err := encoder.Encode(&operation)
 	if err != nil {
 		return nil, err
 	}
@@ -426,24 +425,24 @@ func (a *Participant) encode(kv *keyValue) (*pb.SetRequest, error) {
 }
 
 func (a *Participant) commit() error {
-	kv, err := a.decode(a.currentRequest.Payload)
+	operation, err := a.decode(a.currentRequest.Payload)
 	if err != nil {
 		debugPrintln(1, "Decode error", err)
 		return err
 	}
-	debugPrintln(1, "Client Commit", a.clientID, kv)
-	return a.committer(kv.Key, kv.Value)
+	debugPrintln(1, "Client Commit", a.clientID, operation)
+	return a.committer(operation)
 }
 
-func (a *Participant) decode(encoded []byte) (*keyValue, error) {
-	var kv keyValue
+func (a *Participant) decode(encoded []byte) (*transparent.Message, error) {
+	var operation transparent.Message
 	buf := bytes.NewBuffer(encoded)
 	encoder := gob.NewDecoder(buf)
-	err := encoder.Decode(&kv)
+	err := encoder.Decode(&operation)
 	if err != nil {
 		return nil, err
 	}
-	return &kv, nil
+	return &operation, nil
 }
 
 func (a *Participant) mainLoop() {

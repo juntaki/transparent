@@ -23,11 +23,7 @@ func NewStack() *Stack {
 // Stack add the layer to Stack
 func (s *Stack) Stack(l Layer) error {
 	if s.Layer != nil {
-		err := l.setLower(s.Layer)
-		if err != nil {
-			return err
-		}
-		err = s.Layer.setUpper(l)
+		err := l.setNext(s.Layer)
 		if err != nil {
 			return err
 		}
@@ -65,24 +61,27 @@ type Layer interface {
 	Get(key interface{}) (value interface{}, err error)
 	Remove(key interface{}) error
 	Sync() error
-	setUpper(Layer) error
-	setLower(Layer) error
+	setNext(Layer) error
 	start() error
 	stop() error
 }
 
-// message passing between layer or its internals
-type message int
+// MessageType of operation
+type MessageType int
 
+// MessageType of operation
 const (
-	messageSet message = iota
-	messageRemove
-	messageSync
+	MessageSet MessageType = iota
+	MessageGet
+	MessageRemove
+	MessageSync
 )
 
-type operation struct {
+// Message is layer operation
+type Message struct {
+	Key     interface{}
 	Value   interface{}
-	Message message
+	Message MessageType
 	UUID    string
 }
 
