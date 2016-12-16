@@ -15,10 +15,16 @@ import (
 // |transparent.Source| |transparent.Source|
 // -------------------- --------------------
 
-func NewLayerConsensus() *LayerConsensus {
-	return &LayerConsensus{
-		inFlight: make(map[string]chan error),
+func NewLayerConsensus(t Transmitter) (*LayerConsensus, error) {
+	c := &LayerConsensus{
+		inFlight:    make(map[string]chan error),
+		Transmitter: t,
 	}
+	err := t.SetCallback(c.commit)
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 // LayerConsensus layer provide transactional write to cluster.
@@ -26,7 +32,7 @@ func NewLayerConsensus() *LayerConsensus {
 type LayerConsensus struct {
 	lock        sync.Mutex
 	inFlight    map[string]chan error
-	next       Layer
+	next        Layer
 	Transmitter Transmitter
 }
 
@@ -116,7 +122,7 @@ func (d *LayerConsensus) Sync() (err error) {
 }
 
 // commit should be callback function of message receiver
-func (d *LayerConsensus) Commit(op *Message) (err error) {
+func (d *LayerConsensus) commit(op *Message) (err error) {
 	err = nil
 	key := op.Key
 	if d.next == nil {

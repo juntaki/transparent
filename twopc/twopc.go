@@ -284,16 +284,12 @@ func (c *Coodinator) voteRequest(r *pb.SetRequest) (commit bool) {
 }
 
 // NewParticipant returns started Participant
-func NewParticipant(serverAddr string, committer func(operation *transparent.Message) error) (*Participant, error) {
+func NewParticipant(serverAddr string) *Participant {
 	p := &Participant{
-		committer: committer,
-		timeout:   1000, //millisecond
+		timeout:    1000, //millisecond
+		serverAddr: serverAddr,
 	}
-
-	started := make(chan error)
-	go p.start(serverAddr, started)
-	err := <-started
-	return p, err
+	return p
 }
 
 // Participant manage its resource
@@ -307,6 +303,7 @@ type Participant struct {
 	currentRequest *pb.Message
 	client         pb.ClusterClient
 	committer      func(operation *transparent.Message) error
+	serverAddr     string
 }
 
 // SetTimeout change timeout default is 1000 milliseconds
@@ -392,9 +389,17 @@ func (a *Participant) start(serverAddr string, started chan error) {
 }
 
 func (a *Participant) Start() error {
-	return nil
+	started := make(chan error)
+	go a.start(a.serverAddr, started)
+	err := <-started
+	return err
 }
 func (a *Participant) Stop() error {
+	return nil
+}
+
+func (a *Participant) SetCallback(committer func(m *transparent.Message) error) error {
+	a.committer = committer
 	return nil
 }
 

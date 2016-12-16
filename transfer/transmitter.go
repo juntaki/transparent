@@ -108,3 +108,7 @@ func (t *Transmitter) Stop() error {
 	t.conn.Close()
 	return nil
 }
+
+func (t *Transmitter) SetCallback(m func(*transparent.Message) error) error {
+	return nil
+}

@@ -46,6 +46,7 @@ type Transmitter interface {
 	Request(operation *Message) (*Message, error)
 	Start() error
 	Stop() error
+	SetCallback(func(m *Message) error) error
 }
 
 type LayerTransmitter struct {

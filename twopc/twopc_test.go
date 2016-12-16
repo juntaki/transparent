@@ -33,18 +33,26 @@ func TestServer(t *testing.T) {
 		{"testkey2", "testvalue2"},
 		{"testkey3", "testvalue3"},
 	}
-	a1, err := NewParticipant(serverAddr, commit1)
+	a1 := NewParticipant(serverAddr)
+	a2 := NewParticipant(serverAddr)
+	a3 := NewParticipant(serverAddr)
+
+	err := a1.SetCallback(commit1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	a2, err := NewParticipant(serverAddr, commit2)
+	err = a2.SetCallback(commit2)
 	if err != nil {
 		t.Fatal(err)
 	}
-	a3, err := NewParticipant(serverAddr, commit3)
+	err = a3.SetCallback(commit3)
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	a1.Start()
+	a2.Start()
+	a3.Start()
 
 	a1.Request(&transparent.Message{Key: "testkey1", Value: "testvalue1"})
 	a2.Request(&transparent.Message{Key: "testkey2", Value: "testvalue2"})
@@ -68,6 +76,9 @@ func TestServer(t *testing.T) {
 			t.Error(array1, array2, array3)
 		}
 	}
+	a1.Stop()
+	a2.Stop()
+	a3.Stop()
 }
 
 func TestEncode(t *testing.T) {
