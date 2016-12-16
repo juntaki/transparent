@@ -5,11 +5,7 @@ import (
 	"time"
 )
 
-// LayerCache wraps BackendStorage.
-// It Get/Set key-value to BackendStorage,
-// and asynchronously apply same operation to Next Layer.
-// It must be Stacked on a Layer.
-type LayerCache struct {
+type layerCache struct {
 	Storage BackendStorage // Target cache
 	log     chan log       // Channel buffer
 	sync    chan bool      // Control for flush buffer
@@ -24,12 +20,16 @@ type log struct {
 	*Message
 }
 
-// NewLayerCache returns Cache layer.
-func NewLayerCache(bufferSize int, storage BackendStorage) (*LayerCache, error) {
+// NewLayerCache returns LayerCache.
+// LayerCache wraps BackendStorage.
+// It Get/Set key-value to BackendStorage,
+// and asynchronously apply same operation to Next Layer.
+// It must be Stacked on a Layer.
+func NewLayerCache(bufferSize int, storage BackendStorage) (Layer, error) {
 	if storage == nil {
 		return nil, errors.New("empty storage")
 	}
-	c := &LayerCache{
+	c := &layerCache{
 		log:     make(chan log, bufferSize),
 		done:    make(chan bool, 1),
 		sync:    make(chan bool, 1),
@@ -39,12 +39,12 @@ func NewLayerCache(bufferSize int, storage BackendStorage) (*LayerCache, error) 
 	return c, nil
 }
 
-func (c *LayerCache) start() error {
+func (c *layerCache) start() error {
 	go c.flusher()
 	return nil
 }
 
-func (c *LayerCache) stop() error {
+func (c *layerCache) stop() error {
 	close(c.log)
 	<-c.done
 	return nil
@@ -52,7 +52,7 @@ func (c *LayerCache) stop() error {
 
 type buffer struct {
 	queue map[interface{}]*Message
-	c     *LayerCache
+	c     *layerCache
 	limit int
 }
 
@@ -82,7 +82,7 @@ func (b *buffer) flush() {
 }
 
 // Flusher
-func (c *LayerCache) flusher() {
+func (c *layerCache) flusher() {
 	b := buffer{c: c, limit: 5}
 	b.reset()
 done:
@@ -126,7 +126,7 @@ done:
 }
 
 // Get value from cache, or if not found, recursively get.
-func (c *LayerCache) Get(key interface{}) (value interface{}, err error) {
+func (c *layerCache) Get(key interface{}) (value interface{}, err error) {
 	// Try to get backend cache
 	value, err = c.Storage.Get(key)
 	if err != nil {
@@ -147,7 +147,7 @@ func (c *LayerCache) Get(key interface{}) (value interface{}, err error) {
 }
 
 // Set set new value to Storage.
-func (c *LayerCache) Set(key interface{}, value interface{}) (err error) {
+func (c *layerCache) Set(key interface{}, value interface{}) (err error) {
 	err = c.Storage.Add(key, value)
 	if err != nil {
 		return err
@@ -162,14 +162,14 @@ func (c *LayerCache) Set(key interface{}, value interface{}) (err error) {
 }
 
 // Sync current buffered value
-func (c *LayerCache) Sync() error {
+func (c *layerCache) Sync() error {
 	c.sync <- true
 	<-c.synced
 	return nil
 }
 
 // Remove recursively remove next layer's value
-func (c *LayerCache) Remove(key interface{}) (err error) {
+func (c *layerCache) Remove(key interface{}) (err error) {
 	err = c.Storage.Remove(key)
 	if err != nil {
 		return err
@@ -185,7 +185,7 @@ func (c *LayerCache) Remove(key interface{}) (err error) {
 }
 
 // SetNext set next layer
-func (c *LayerCache) setNext(next Layer) error {
+func (c *layerCache) setNext(next Layer) error {
 	c.next = next
 	return nil
 }

@@ -13,21 +13,21 @@ import (
 	"google.golang.org/grpc"
 )
 
-// Receiver is simple Receiver
-type Receiver struct {
+type receiver struct {
 	serverAddr     string
 	grpcServer     *grpc.Server
 	transferServer *server
 }
 
-func NewReceiver(serverAddr string) *Receiver {
-	return &Receiver{
+// NewReceiver returns simple Receiver
+func NewReceiver(serverAddr string) transparent.BackendReceiver {
+	return &receiver{
 		serverAddr:     serverAddr,
 		transferServer: &server{},
 	}
 }
 
-func (r *Receiver) Start() error {
+func (r *receiver) Start() error {
 	lis, err := net.Listen("tcp", r.serverAddr)
 	if err != nil {
 		return err
@@ -39,11 +39,11 @@ func (r *Receiver) Start() error {
 	return nil
 }
 
-func (r *Receiver) Stop() error {
+func (r *receiver) Stop() error {
 	return nil
 }
 
-func (r *Receiver) SetNext(l transparent.Layer) error {
+func (r *receiver) SetNext(l transparent.Layer) error {
 	r.transferServer.next = l
 	return nil
 }

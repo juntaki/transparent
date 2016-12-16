@@ -95,7 +95,7 @@ func BasicStackFunc(t *testing.T, s *transparent.Stack) {
 }
 
 // BasicCacheFunc is test for transparent.Cache
-func BasicCacheFunc(t *testing.T, c *transparent.LayerCache) {
+func BasicCacheFunc(t *testing.T, c transparent.Layer) {
 	s := NewSource(0)
 	stack := transparent.NewStack()
 	stack.Stack(s)
@@ -106,7 +106,7 @@ func BasicCacheFunc(t *testing.T, c *transparent.LayerCache) {
 }
 
 // BasicSourceFunc is test for transparent.Source
-func BasicSourceFunc(t *testing.T, s *transparent.LayerSource) {
+func BasicSourceFunc(t *testing.T, s transparent.Layer) {
 	stack := transparent.NewStack()
 	stack.Stack(s)
 	stack.Start()
@@ -115,7 +115,7 @@ func BasicSourceFunc(t *testing.T, s *transparent.LayerSource) {
 }
 
 // BasicTransmitterFunc is test for transparent.Transmitter
-func BasicTransmitterFunc(t *testing.T, s *transparent.LayerTransmitter) {
+func BasicTransmitterFunc(t *testing.T, s transparent.Layer) {
 	stack := transparent.NewStack()
 	stack.Stack(s)
 	stack.Start()
@@ -124,7 +124,7 @@ func BasicTransmitterFunc(t *testing.T, s *transparent.LayerTransmitter) {
 }
 
 // BasicConsensusFunc is test for transparent.Consensus
-func BasicConsensusFunc(t *testing.T, a1, a2 *transparent.LayerConsensus) {
+func BasicConsensusFunc(t *testing.T, a1, a2 transparent.Layer) {
 	src1 := NewSource(0)
 	src2 := NewSource(0)
 

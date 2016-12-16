@@ -10,7 +10,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-func (t *Transmitter) convertSendMessage(m *transparent.Message) (*pb.Message, error) {
+func (t *transmitter) convertSendMessage(m *transparent.Message) (*pb.Message, error) {
 	var converted pb.Message
 	if m.Key != nil {
 		keyStr, err := t.ValidateKey(m.Key)
@@ -42,7 +42,7 @@ func (t *Transmitter) convertSendMessage(m *transparent.Message) (*pb.Message, e
 	return &converted, nil
 }
 
-func (t *Transmitter) convertReceiveMessage(m *pb.Message) (*transparent.Message, error) {
+func (t *transmitter) convertReceiveMessage(m *pb.Message) (*transparent.Message, error) {
 	if m == nil {
 		return nil, errors.New("nil")
 	}
@@ -65,23 +65,22 @@ func (t *Transmitter) convertReceiveMessage(m *pb.Message) (*transparent.Message
 	return &converted, nil
 }
 
-// Transmitter is simple Transmitter
-type Transmitter struct {
+type transmitter struct {
 	simple.Validator
 	client     pb.TransferClient
 	serverAddr string
 	conn       *grpc.ClientConn
 }
 
-// NewSimpleTransmitter returns Sender
-func NewSimpleTransmitter(serverAddr string) *Transmitter {
-	return &Transmitter{
+// NewSimpleTransmitter returns simple Transmitter
+func NewSimpleTransmitter(serverAddr string) transparent.BackendTransmitter {
+	return &transmitter{
 		Validator:  simple.Validator{},
 		serverAddr: serverAddr,
 	}
 }
 
-func (t *Transmitter) Request(m *transparent.Message) (*transparent.Message, error) {
+func (t *transmitter) Request(m *transparent.Message) (*transparent.Message, error) {
 	message, err := t.convertSendMessage(m)
 	if err != nil {
 		return nil, err
@@ -94,7 +93,7 @@ func (t *Transmitter) Request(m *transparent.Message) (*transparent.Message, err
 	return response, nil
 }
 
-func (t *Transmitter) Start() error {
+func (t *transmitter) Start() error {
 	conn, err := grpc.Dial(t.serverAddr, grpc.WithInsecure())
 	t.conn = conn
 	if err != nil {
@@ -104,11 +103,11 @@ func (t *Transmitter) Start() error {
 	return nil
 }
 
-func (t *Transmitter) Stop() error {
+func (t *transmitter) Stop() error {
 	t.conn.Close()
 	return nil
 }
 
-func (t *Transmitter) SetCallback(m func(*transparent.Message) error) error {
+func (t *transmitter) SetCallback(m func(*transparent.Message) error) error {
 	return nil
 }

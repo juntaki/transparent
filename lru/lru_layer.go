@@ -5,7 +5,7 @@ import (
 )
 
 // NewCache returns LRUCache
-func NewCache(bufferSize, cacheSize int) (*transparent.LayerCache, error) {
+func NewCache(bufferSize, cacheSize int) (transparent.Layer, error) {
 	lru := NewStorage(cacheSize)
 	layer, err := transparent.NewLayerCache(bufferSize, lru)
 	if err != nil {

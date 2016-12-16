@@ -7,6 +7,12 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
+// NewLayerConsensus returns LayerConsensus.
+// LayerConsensus wraps BackendTransmitter.
+// It send Set operation and key-value to multiple Stacks asynchronously
+// and Get key-value from Next Layer.
+// It must be Stacked on a Layer.
+//
 //    User program A       User program B
 //          |                    |
 // -----------------------------------------
@@ -14,10 +20,8 @@ import (
 // -------------------- --------------------
 // |transparent.Source| |transparent.Source|
 // -------------------- --------------------
-
-// NewLayerConsensus returns LayerConsensus implements Layer.
-func NewLayerConsensus(t BackendTransmitter) (*LayerConsensus, error) {
-	c := &LayerConsensus{
+func NewLayerConsensus(t BackendTransmitter) (Layer, error) {
+	c := &layerConsensus{
 		inFlight:    make(map[string]chan error),
 		Transmitter: t,
 	}
@@ -28,11 +32,7 @@ func NewLayerConsensus(t BackendTransmitter) (*LayerConsensus, error) {
 	return c, nil
 }
 
-// LayerConsensus wraps BackendTransmitter.
-// It send Set operation and key-value to multiple Stacks asynchronously
-// and Get key-value from Next Layer.
-// It must be Stacked on a Layer.
-type LayerConsensus struct {
+type layerConsensus struct {
 	lock        sync.Mutex
 	inFlight    map[string]chan error
 	next        Layer
@@ -40,7 +40,7 @@ type LayerConsensus struct {
 }
 
 // Set send a request to cluster
-func (d *LayerConsensus) Set(key interface{}, value interface{}) (err error) {
+func (d *layerConsensus) Set(key interface{}, value interface{}) (err error) {
 	// We will check which message is commited by UUID
 	uuid := uuid.NewV4().String()
 	channel := make(chan error)
@@ -65,7 +65,7 @@ func (d *LayerConsensus) Set(key interface{}, value interface{}) (err error) {
 }
 
 // Get just get the value from next layer
-func (d *LayerConsensus) Get(key interface{}) (value interface{}, err error) {
+func (d *layerConsensus) Get(key interface{}) (value interface{}, err error) {
 	// Recursively get value from list.
 	if d.next == nil {
 		return nil, errors.New("next layer not found")
@@ -78,7 +78,7 @@ func (d *LayerConsensus) Get(key interface{}) (value interface{}, err error) {
 }
 
 // Remove send a request to cluster
-func (d *LayerConsensus) Remove(key interface{}) (err error) {
+func (d *layerConsensus) Remove(key interface{}) (err error) {
 	uuid := uuid.NewV4().String()
 	channel := make(chan error)
 	d.lock.Lock()
@@ -102,7 +102,7 @@ func (d *LayerConsensus) Remove(key interface{}) (err error) {
 }
 
 // Sync send a request to cluster
-func (d *LayerConsensus) Sync() (err error) {
+func (d *layerConsensus) Sync() (err error) {
 	uuid := uuid.NewV4().String()
 	channel := make(chan error)
 	d.lock.Lock()
@@ -126,7 +126,7 @@ func (d *LayerConsensus) Sync() (err error) {
 }
 
 // commit is callback function to apply operation
-func (d *LayerConsensus) commit(op *Message) (err error) {
+func (d *layerConsensus) commit(op *Message) (err error) {
 	err = nil
 	key := op.Key
 	if d.next == nil {
@@ -151,15 +151,15 @@ func (d *LayerConsensus) commit(op *Message) (err error) {
 	return err
 }
 
-func (d *LayerConsensus) setNext(next Layer) error {
+func (d *layerConsensus) setNext(next Layer) error {
 	d.next = next
 	return nil
 }
 
-func (d *LayerConsensus) start() error {
+func (d *layerConsensus) start() error {
 	return d.Transmitter.Start()
 }
 
-func (d *LayerConsensus) stop() error {
+func (d *layerConsensus) stop() error {
 	return d.Transmitter.Stop()
 }
