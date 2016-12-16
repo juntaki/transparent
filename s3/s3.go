@@ -16,9 +16,9 @@ import (
 )
 
 // NewS3Storage returns S3Storage
-func NewStorage(bucket string, svc s3iface.S3API) (transparent.Storage, error) {
+func NewStorage(bucket string, svc s3iface.S3API) (transparent.BackendStorage, error) {
 	return &simple.StorageWrapper{
-		Storage: &simpleStorage{
+		BackendStorage: &simpleStorage{
 			svc:    svc,
 			bucket: aws.String(bucket),
 		}}, nil
@@ -31,7 +31,7 @@ type simpleStorage struct {
 }
 
 // NewS3SimpleStorage returns s3SimpleStorage
-func NewSimpleStorage(bucket string, svc s3iface.S3API) (transparent.Storage, error) {
+func NewSimpleStorage(bucket string, svc s3iface.S3API) (transparent.BackendStorage, error) {
 	return &simpleStorage{
 		svc:    svc,
 		bucket: aws.String(bucket),

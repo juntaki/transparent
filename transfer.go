@@ -2,35 +2,40 @@ package transparent
 
 import "errors"
 
-type Receiver interface {
-	Start() error
-	Stop() error
-	SetNext(l Layer) error
-}
-
+// LayerReceiver wraps BackendReceiver.
+// It receive operation and key-value from another Stack.
+// This layer must be the top of Stack.
 type LayerReceiver struct {
-	Receiver Receiver
+	Receiver BackendReceiver
 }
 
-// NewLayerReceiver returns LayerReceiver
-func NewLayerReceiver(Receiver Receiver) *LayerReceiver {
+// NewLayerReceiver returns LayerReceiver implements Layer
+func NewLayerReceiver(Receiver BackendReceiver) *LayerReceiver {
 	return &LayerReceiver{
 		Receiver: Receiver,
 	}
 }
 
+// Set is not allowed, operation should be transfered from Transmitter.
 func (r *LayerReceiver) Set(key interface{}, value interface{}) error {
 	return errors.New("don't send Set")
 }
+
+// Get is not allowed, operation should be transfered from Transmitter.
 func (r *LayerReceiver) Get(key interface{}) (value interface{}, err error) {
 	return nil, errors.New("don't send Get")
 }
+
+// Remove is not allowed, operation should be transfered from Transmitter.
 func (r *LayerReceiver) Remove(key interface{}) error {
 	return errors.New("don't send Remove")
 }
+
+// Sync is not allowed, operation should be transfered from Transmitter.
 func (r *LayerReceiver) Sync() error {
 	return errors.New("don't send Sync")
 }
+
 func (r *LayerReceiver) setNext(l Layer) error {
 	return r.Receiver.SetNext(l)
 }
@@ -41,25 +46,21 @@ func (r *LayerReceiver) stop() error {
 	return r.Receiver.Stop()
 }
 
-// Transmitter is interface to another system
-type Transmitter interface {
-	Request(operation *Message) (*Message, error)
-	Start() error
-	Stop() error
-	SetCallback(func(m *Message) error) error
-}
-
+// LayerTransmitter wraps BackendTransmitter.
+// It send operation and key-value to another Stack.
+// This layer must be the bottom of Stack.
 type LayerTransmitter struct {
-	Transmitter Transmitter
+	Transmitter BackendTransmitter
 }
 
-// NewLayerTransmitter returns LayerTransmitter
-func NewLayerTransmitter(Transmitter Transmitter) *LayerTransmitter {
+// NewLayerTransmitter returns LayerTransmitter implements Layer
+func NewLayerTransmitter(Transmitter BackendTransmitter) *LayerTransmitter {
 	return &LayerTransmitter{
 		Transmitter: Transmitter,
 	}
 }
 
+// Set convert key-value to Message and Request it.
 func (r *LayerTransmitter) Set(key interface{}, value interface{}) error {
 	operation := &Message{
 		Message: MessageSet,
@@ -72,6 +73,8 @@ func (r *LayerTransmitter) Set(key interface{}, value interface{}) error {
 	}
 	return nil
 }
+
+// Get convert key to Message and Request it.
 func (r *LayerTransmitter) Get(key interface{}) (value interface{}, err error) {
 	operation := &Message{
 		Message: MessageGet,
@@ -85,6 +88,8 @@ func (r *LayerTransmitter) Get(key interface{}) (value interface{}, err error) {
 
 	return feature.Value, nil
 }
+
+// Remove convert key to Message and Request it.
 func (r *LayerTransmitter) Remove(key interface{}) error {
 	operation := &Message{
 		Message: MessageRemove,
@@ -96,6 +101,8 @@ func (r *LayerTransmitter) Remove(key interface{}) error {
 	}
 	return nil
 }
+
+// Sync makes Message and Request it.
 func (r *LayerTransmitter) Sync() error {
 	operation := &Message{
 		Message: MessageSync,

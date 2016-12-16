@@ -9,7 +9,7 @@ import (
 )
 
 // SimpleStorageFunc is Error message test for simple Storage
-func SimpleStorageFunc(t *testing.T, storage transparent.Storage) {
+func SimpleStorageFunc(t *testing.T, storage transparent.BackendStorage) {
 	var err error
 	err = storage.Add(0, []byte("value"))
 	if typeErr, ok := err.(*simple.StorageInvalidKeyError); !ok {
@@ -40,7 +40,7 @@ func SimpleStorageFunc(t *testing.T, storage transparent.Storage) {
 }
 
 // BasicStorageFunc is Get, Add and Remove
-func BasicStorageFunc(t *testing.T, storage transparent.Storage) {
+func BasicStorageFunc(t *testing.T, storage transparent.BackendStorage) {
 	// Add and Get
 	err := storage.Add("test", []byte("value"))
 	if err != nil {

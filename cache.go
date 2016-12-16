@@ -5,11 +5,14 @@ import (
 	"time"
 )
 
-// LayerCache provides operation of TransparentCache
+// LayerCache wraps BackendStorage.
+// It Get/Set key-value to BackendStorage,
+// and asynchronously apply same operation to Next Layer.
+// It must be Stacked on a Layer.
 type LayerCache struct {
-	Storage Storage   // Target cache
-	log     chan log  // Channel buffer
-	sync    chan bool // Control for flush buffer
+	Storage BackendStorage // Target cache
+	log     chan log       // Channel buffer
+	sync    chan bool      // Control for flush buffer
 	synced  chan bool
 	done    chan bool
 	next    Layer
@@ -22,7 +25,7 @@ type log struct {
 }
 
 // NewLayerCache returns Cache layer.
-func NewLayerCache(bufferSize int, storage Storage) (*LayerCache, error) {
+func NewLayerCache(bufferSize int, storage BackendStorage) (*LayerCache, error) {
 	if storage == nil {
 		return nil, errors.New("empty storage")
 	}

@@ -15,7 +15,7 @@ import (
 
 type mockS3Client struct {
 	s3iface.S3API
-	d transparent.Storage
+	d transparent.BackendStorage
 }
 
 func newMockS3Client() (*mockS3Client, error) {

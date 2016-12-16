@@ -15,7 +15,8 @@ import (
 // |transparent.Source| |transparent.Source|
 // -------------------- --------------------
 
-func NewLayerConsensus(t Transmitter) (*LayerConsensus, error) {
+// NewLayerConsensus returns LayerConsensus implements Layer.
+func NewLayerConsensus(t BackendTransmitter) (*LayerConsensus, error) {
 	c := &LayerConsensus{
 		inFlight:    make(map[string]chan error),
 		Transmitter: t,
@@ -27,17 +28,20 @@ func NewLayerConsensus(t Transmitter) (*LayerConsensus, error) {
 	return c, nil
 }
 
-// LayerConsensus layer provide transactional write to cluster.
-// There is no storage, the layer of only forward.
+// LayerConsensus wraps BackendTransmitter.
+// It send Set operation and key-value to multiple Stacks asynchronously
+// and Get key-value from Next Layer.
+// It must be Stacked on a Layer.
 type LayerConsensus struct {
 	lock        sync.Mutex
 	inFlight    map[string]chan error
 	next        Layer
-	Transmitter Transmitter
+	Transmitter BackendTransmitter
 }
 
 // Set send a request to cluster
 func (d *LayerConsensus) Set(key interface{}, value interface{}) (err error) {
+	// We will check which message is commited by UUID
 	uuid := uuid.NewV4().String()
 	channel := make(chan error)
 	d.lock.Lock()
@@ -121,7 +125,7 @@ func (d *LayerConsensus) Sync() (err error) {
 	return err
 }
 
-// commit should be callback function of message receiver
+// commit is callback function to apply operation
 func (d *LayerConsensus) commit(op *Message) (err error) {
 	err = nil
 	key := op.Key
@@ -147,7 +151,6 @@ func (d *LayerConsensus) commit(op *Message) (err error) {
 	return err
 }
 
-// SetNext set next layer
 func (d *LayerConsensus) setNext(next Layer) error {
 	d.next = next
 	return nil

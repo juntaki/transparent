@@ -24,7 +24,7 @@ type keyValue struct {
 }
 
 // NewStorage returns LRU Storage
-func NewStorage(maxEntries int) transparent.Storage {
+func NewStorage(maxEntries int) transparent.BackendStorage {
 	c := &storage{
 		hash:           make(map[interface{}]*keyValue),
 		currentEntries: 0,

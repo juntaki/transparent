@@ -17,7 +17,7 @@ func NewStorage(
 	getFunc func(k interface{}) (interface{}, error),
 	addFunc func(k interface{}, v interface{}) error,
 	removeFunc func(k interface{}) error,
-) (transparent.Storage, error) {
+) (transparent.BackendStorage, error) {
 	if getFunc == nil || addFunc == nil || removeFunc == nil {
 		return nil, errors.New("function must be filled")
 	}

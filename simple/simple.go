@@ -12,7 +12,7 @@ import (
 )
 
 type StorageWrapper struct {
-	transparent.Storage
+	transparent.BackendStorage
 }
 
 // Get is file read
@@ -21,7 +21,7 @@ func (f *StorageWrapper) Get(k interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	v, err := f.Storage.Get(key)
+	v, err := f.BackendStorage.Get(key)
 	if err != nil {
 		_, ok := err.(*transparent.KeyNotFoundError)
 		if ok {
@@ -46,7 +46,7 @@ func (f *StorageWrapper) Add(k interface{}, v interface{}) error {
 	if err != nil {
 		return err
 	}
-	err = f.Storage.Add(key, data)
+	err = f.BackendStorage.Add(key, data)
 	if err != nil {
 		return err
 	}
@@ -59,7 +59,7 @@ func (f *StorageWrapper) Remove(k interface{}) error {
 	if err != nil {
 		return err
 	}
-	err = f.Storage.Remove(key)
+	err = f.BackendStorage.Remove(key)
 	if err != nil {
 		return err
 	}

@@ -1,10 +1,7 @@
-// Package transparent is a library that provides transparent caching operations
-// for key-value stores. As shown in the figure below, it is possible to use relatively
-// fast cache like LRU and slow and reliable storage like S3 via TransparentCache.
-// Transparent Cache is tearable. In addition to caching, it is also possible to
+// Package transparent is a library that provides transparent operations for key-value stores.
+// Transparent Layer is tearable on Stack. In addition to caching, it is also possible to
 // transparently use a layer of synchronization between distributed systems.
-// See subpackage for example.
-
+// See subpackage for implementation.
 package transparent
 
 // Stack is stacked layer

@@ -2,13 +2,15 @@ package transparent
 
 import "errors"
 
-// LayerSource provides operation of TransparentSource
+// LayerSource wraps BackendStorage.
+// It Get/Set key-value to BackendStorage.
+// This layer must be the bottom of Stack
 type LayerSource struct {
-	Storage Storage
+	Storage BackendStorage
 }
 
 // NewLayerSource returns Source
-func NewLayerSource(storage Storage) (*LayerSource, error) {
+func NewLayerSource(storage BackendStorage) (*LayerSource, error) {
 	if storage == nil {
 		return nil, errors.New("empty storage")
 	}

@@ -15,7 +15,7 @@ type storage struct {
 }
 
 // NewStorage returns Storage
-func NewStorage(wait time.Duration) transparent.Storage {
+func NewStorage(wait time.Duration) transparent.BackendStorage {
 	return &storage{
 		list: make(map[interface{}]interface{}, 0),
 		wait: wait,

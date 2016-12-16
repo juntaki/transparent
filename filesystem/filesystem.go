@@ -17,16 +17,16 @@ type simpleStorage struct {
 
 // NewSimpleStorage returns SimpleStorage
 // SimpleStorage only accepts string key and []byte value.
-func NewSimpleStorage(directory string) transparent.Storage {
+func NewSimpleStorage(directory string) transparent.BackendStorage {
 	return &simpleStorage{
 		directory: directory + "/",
 	}
 }
 
 // NewStorage returns Storage
-func NewStorage(directory string) transparent.Storage {
+func NewStorage(directory string) transparent.BackendStorage {
 	return &simple.StorageWrapper{
-		Storage: &simpleStorage{
+		BackendStorage: &simpleStorage{
 			directory: directory + "/",
 		}}
 }
