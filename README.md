@@ -18,41 +18,32 @@ go get github.com/juntaki/transparent
 
 ### Basic usage
 
-First, create layers and stack them with Stack().
+First, create layers and stack them with Stack.Stack().
+This example adds LRU memory cache and filesystem cache to dummy source layer.
 
 ~~~go
-var err error
-cacheLayer1, _ := transparent.NewLRUCache(10, 100)
-cacheLayer2, _ := transparent.NewFilesystemCache(10, "/tmp")
-sourceLayer := transparent.NewDummySource(10)
-transparent.Stack(cacheLayer1, cacheLayer2)
-transparent.Stack(cacheLayer2, sourceLayer)
+	cacheLayer1, _ := lru.NewCache(10, 100)
+	cacheLayer2 := filesystem.NewCache(10, "/tmp")
+	sourceLayer := test.NewSource(10)
+
+	stack := transparent.NewStack()
+	stack.Stack(sourceLayer)
+	stack.Stack(cacheLayer2)
+	stack.Stack(cacheLayer1)
 ~~~
 
-If you manipulate the layer stacked on top, the value will be transmitted to the bottom layer.
+If you manipulate the Stack, the value will be transmitted from top layer to the bottom layer transparently.
 
 ~~~go
-cacheLayer1.Set("key", []byte("value"))
-cacheLayer1.Sync()
-value, _ := cacheLayer1.Get("key")
-fmt.Printf("%s\n", value)
+	stack.Set("key", []byte("value"))
+	stack.Sync()
+    
+    // value, _ = cacheLayer1.Get("key") // "value"
+	// value, _ = cacheLayer2.Get("key") // "value"
+	// value, _ = sourceLayer.Get("key") // "value"
 
-value, err = cacheLayer2.Get("key")
-if err != nil {
-    fmt.Println(err)
-}
-fmt.Printf("%s\n", value)
-value, err = sourceLayer.Get("key")
-if err != nil {
-    fmt.Println(err)
-}
-fmt.Printf("%s\n", value)
-~~~
-
-~~~go:result
-value
-value
-value
+	value, _ := stack.Get("key")
+	fmt.Printf("%s\n", value)            // "value"
 ~~~
 
 For details, please refer to [Godoc] (https://godoc.org/github.com/juntaki/transparent).
