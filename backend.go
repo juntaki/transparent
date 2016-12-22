@@ -1,11 +1,11 @@
 package transparent
 
 // BackendReceiver is interface from another system
-// Operation should apply to Next layer
+// Callback function will executed with received Message.
 type BackendReceiver interface {
 	Start() error
 	Stop() error
-	SetNext(l Layer) error
+	SetCallback(func(m *Message) (*Message, error)) error
 }
 
 // BackendTransmitter is interface to another system
@@ -16,7 +16,7 @@ type BackendTransmitter interface {
 	Request(operation *Message) (*Message, error)
 	Start() error
 	Stop() error
-	SetCallback(func(m *Message) error) error
+	SetCallback(func(m *Message) (*Message, error)) error
 }
 
 // BackendStorage defines the interface that backend data storage.

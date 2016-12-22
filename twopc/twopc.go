@@ -302,7 +302,7 @@ type Participant struct {
 	clientID       uint64
 	currentRequest *pb.Message
 	client         pb.ClusterClient
-	committer      func(operation *transparent.Message) error
+	committer      func(m *transparent.Message) (*transparent.Message, error)
 	serverAddr     string
 }
 
@@ -398,7 +398,7 @@ func (a *Participant) Stop() error {
 	return nil
 }
 
-func (a *Participant) SetCallback(committer func(m *transparent.Message) error) error {
+func (a *Participant) SetCallback(committer func(m *transparent.Message) (*transparent.Message, error)) error {
 	a.committer = committer
 	return nil
 }
@@ -429,11 +429,11 @@ func (a *Participant) encode(operation *transparent.Message) (*pb.SetRequest, er
 	return request, nil
 }
 
-func (a *Participant) commit() error {
+func (a *Participant) commit() (*transparent.Message, error) {
 	operation, err := a.decode(a.currentRequest.Payload)
 	if err != nil {
 		debugPrintln(1, "Decode error", err)
-		return err
+		return nil, err
 	}
 	debugPrintln(1, "Client Commit", a.clientID, operation)
 	return a.committer(operation)

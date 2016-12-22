@@ -13,19 +13,19 @@ func TestServer(t *testing.T) {
 	NewCoodinator(serverAddr)
 
 	array1 := [][]interface{}{}
-	commit1 := func(op *transparent.Message) error {
+	commit1 := func(op *transparent.Message) (*transparent.Message, error) {
 		array1 = append(array1, []interface{}{op.Key, op.Value})
-		return nil
+		return nil, nil
 	}
 	array2 := [][]interface{}{}
-	commit2 := func(op *transparent.Message) error {
+	commit2 := func(op *transparent.Message) (*transparent.Message, error) {
 		array2 = append(array2, []interface{}{op.Key, op.Value})
-		return nil
+		return nil, nil
 	}
 	array3 := [][]interface{}{}
-	commit3 := func(op *transparent.Message) error {
+	commit3 := func(op *transparent.Message) (*transparent.Message, error) {
 		array3 = append(array3, []interface{}{op.Key, op.Value})
-		return nil
+		return nil, nil
 	}
 
 	expected := [][]interface{}{

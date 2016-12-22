@@ -126,7 +126,7 @@ func (d *layerConsensus) Sync() (err error) {
 }
 
 // commit is callback function to apply operation
-func (d *layerConsensus) commit(op *Message) (err error) {
+func (d *layerConsensus) commit(op *Message) (res *Message, err error) {
 	err = nil
 	key := op.Key
 	if d.next == nil {
@@ -148,7 +148,7 @@ func (d *layerConsensus) commit(op *Message) (err error) {
 	if ok {
 		channel <- err
 	}
-	return err
+	return nil, err
 }
 
 func (d *layerConsensus) setNext(next Layer) error {

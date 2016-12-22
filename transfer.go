@@ -4,6 +4,7 @@ import "errors"
 
 type layerReceiver struct {
 	Receiver BackendReceiver
+	next     Layer
 }
 
 // NewLayerReceiver returns LayerReceiver.
@@ -11,9 +12,11 @@ type layerReceiver struct {
 // It receive operation and key-value from another Stack.
 // This layer must be the top of Stack.
 func NewLayerReceiver(Receiver BackendReceiver) Layer {
-	return &layerReceiver{
+	r := &layerReceiver{
 		Receiver: Receiver,
 	}
+	Receiver.SetCallback(r.callback)
+	return r
 }
 
 // Set is not allowed, operation should be transfered from Transmitter.
@@ -37,13 +40,40 @@ func (r *layerReceiver) Sync() error {
 }
 
 func (r *layerReceiver) setNext(l Layer) error {
-	return r.Receiver.SetNext(l)
+	r.next = l
+	return nil
 }
 func (r *layerReceiver) start() error {
 	return r.Receiver.Start()
 }
 func (r *layerReceiver) stop() error {
 	return r.Receiver.Stop()
+}
+
+func (r *layerReceiver) callback(m *Message) (*Message, error) {
+	var message Message
+	var err error
+	message.Message = m.Message
+
+	switch m.Message {
+	case MessageSet:
+		message.Key = m.Key
+		err = r.next.Set(m.Key, m.Value)
+	case MessageGet:
+		message.Key = m.Key
+		message.Value, err = r.next.Get(m.Key)
+	case MessageRemove:
+		message.Key = m.Key
+		err = r.next.Remove(m.Key)
+	case MessageSync:
+		err = r.next.Sync()
+	default:
+		err = errors.New("unknown message")
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &message, nil
 }
 
 type layerTransmitter struct {
