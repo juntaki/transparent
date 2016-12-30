@@ -11,49 +11,38 @@ import (
 	"github.com/pkg/errors"
 )
 
-type BareKey struct {
-	Bucket *string
-	Key    *string
-}
-
-type BareValue struct {
-	getObjectInput  *s3.GetObjectInput
-	getObjectOutput *s3.GetObjectOutput
-	putObjectInput  *s3.PutObjectInput
-	//putObjectOutput    *s3.PutObjectOutput
+// Bare is key and value struct for BareStorage
+type Bare struct {
+	Value             map[string]interface{}
+	getObjectInput    *s3.GetObjectInput
+	getObjectOutput   *s3.GetObjectOutput
+	putObjectInput    *s3.PutObjectInput
 	deleteObjectInput *s3.DeleteObjectInput
-	//deleteObjectOutput *s3.DeleteObjectOutput
-	Key           *BareKey
-	Value         map[string]interface{}
-	lastOperatoin bool
 }
 
-type bare struct {
-	*BareValue
-	Key *BareKey
-}
-
-func NewBareValue() *BareValue {
-	return &BareValue{
-		Value:           map[string]interface{}{},
-		getObjectInput:  &s3.GetObjectInput{},
-		getObjectOutput: &s3.GetObjectOutput{},
-		putObjectInput:  &s3.PutObjectInput{},
-		//putObjectOutput:    &s3.PutObjectOutput{},
+// NewBare returns Bare
+func NewBare() *Bare {
+	return &Bare{
+		Value:             map[string]interface{}{},
+		getObjectInput:    &s3.GetObjectInput{},
+		getObjectOutput:   &s3.GetObjectOutput{},
+		putObjectInput:    &s3.PutObjectInput{},
 		deleteObjectInput: &s3.DeleteObjectInput{},
-		//deleteObjectOutput: &s3.DeleteObjectOutput{},
 	}
 }
 
-func newBare(key *BareKey, value *BareValue) *bare {
-	return &bare{
-		BareValue: value,
-		Key:       key,
+func (sb *Bare) merge(target *Bare) error {
+	for k, v := range target.Value {
+		if _, ok := sb.Value[k]; ok {
+			return errors.New("Duplicate value")
+		}
+		sb.Value[k] = v
 	}
+	return nil
 }
 
 // Set Value to s3 Objects
-func (sb *bare) Set() error {
+func (sb *Bare) set() error {
 	objects := []interface{}{
 		sb.getObjectOutput,
 		sb.getObjectInput,
@@ -75,17 +64,11 @@ func (sb *bare) Set() error {
 			}
 		}
 	}
-	sb.getObjectInput.Key = sb.Key.Key
-	sb.getObjectInput.Bucket = sb.Key.Bucket
-	sb.putObjectInput.Key = sb.Key.Key
-	sb.putObjectInput.Bucket = sb.Key.Bucket
-	sb.deleteObjectInput.Key = sb.Key.Key
-	sb.deleteObjectInput.Bucket = sb.Key.Bucket
 	return nil
 }
 
 // Get Value from s3 object
-func (sb *bare) Get(object interface{}) {
+func (sb *Bare) get(object interface{}) {
 	giv := reflect.ValueOf(object).Elem()
 	for i := 0; i < giv.NumField(); i++ {
 		key := giv.Type().Field(i).Name
@@ -100,18 +83,21 @@ type bareStorage struct {
 	svc s3iface.S3API
 }
 
-func NewbareStorage(svc s3iface.S3API) transparent.BackendStorage {
+// NewBareStorage returns BareStorage
+func NewBareStorage(svc s3iface.S3API) transparent.BackendStorage {
 	return &bareStorage{
 		svc: svc,
 	}
 }
 func (b *bareStorage) Get(key interface{}) (value interface{}, err error) {
-	bkey, err := b.validateKey(key)
+	bare, err := b.validateBare(key)
 	if err != nil {
 		return nil, err
 	}
-	bvalue := NewBareValue()
-	bare := newBare(&bkey, bvalue)
+	err = bare.set()
+	if err != nil {
+		return nil, err
+	}
 
 	var cause error
 	bare.getObjectOutput, cause = b.svc.GetObject(bare.getObjectInput)
@@ -121,48 +107,47 @@ func (b *bareStorage) Get(key interface{}) (value interface{}, err error) {
 				return nil, &transparent.KeyNotFoundError{Key: key}
 			}
 		}
-		return nil, errors.Wrapf(cause, "GetObject failed. key = %b", bkey)
+		return nil, errors.Wrapf(cause, "GetObject failed. key = %b", bare.Value)
 	}
+	bare.get(bare.getObjectOutput)
 
-	bare.Get(bare.getObjectInput)
-	bare.Get(bare.getObjectOutput)
-
-	return interface{}(bare.BareValue), nil
+	return interface{}(bare), nil
 }
 
 func (b *bareStorage) Add(key interface{}, value interface{}) error {
-	bkey, err := b.validateKey(key)
+	bkey, err := b.validateBare(key)
 	if err != nil {
 		return err
 	}
-	bvalue, err := b.validateValue(value)
+	bvalue, err := b.validateBare(value)
 	if err != nil {
 		return err
 	}
 
-	bare := newBare(&bkey, bvalue)
-	err = bare.Set()
+	err = bkey.merge(bvalue)
+	if err != nil {
+		return err
+	}
+
+	err = bkey.set()
 	if err != nil {
 		return err
 	}
 
 	var cause error
-	_, cause = b.svc.PutObject(bare.putObjectInput)
+	_, cause = b.svc.PutObject(bkey.putObjectInput)
 	if cause != nil {
-		return errors.Wrapf(cause, "PutObject failed. key = %s", bkey)
+		return errors.Wrapf(cause, "PutObject failed. key = %s", bkey.Value)
 	}
-
 	return nil
 }
 
 func (b *bareStorage) Remove(key interface{}) error {
-	bkey, err := b.validateKey(key)
+	bare, err := b.validateBare(key)
 	if err != nil {
 		return err
 	}
-	bvalue := NewBareValue()
-	bare := newBare(&bkey, bvalue)
-	err = bare.Set()
+	err = bare.set()
 	if err != nil {
 		return err
 	}
@@ -170,24 +155,14 @@ func (b *bareStorage) Remove(key interface{}) error {
 	var cause error
 	_, cause = b.svc.DeleteObject(bare.deleteObjectInput)
 	if cause != nil {
-		return errors.Wrapf(cause, "DeleteObject failed. key = %b", bkey)
+		return errors.Wrapf(cause, "DeleteObject failed. key = %b", bare.Value)
 	}
 
 	return nil
 }
-func (b *bareStorage) validateKey(k interface{}) (BareKey, error) {
-	key, ok := k.(BareKey)
-	if !ok {
-		return BareKey{}, &simple.StorageInvalidKeyError{
-			Valid:   reflect.TypeOf((string)("")),
-			Invalid: reflect.TypeOf(k),
-		}
-	}
-	return key, nil
-}
 
-func (b *bareStorage) validateValue(v interface{}) (*BareValue, error) {
-	value, ok := v.(*BareValue)
+func (b *bareStorage) validateBare(v interface{}) (*Bare, error) {
+	value, ok := v.(*Bare)
 	if !ok {
 		return nil, &simple.StorageInvalidValueError{
 			Valid:   reflect.TypeOf(([]byte)("")),
