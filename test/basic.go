@@ -2,6 +2,7 @@ package test
 
 import (
 	"reflect"
+	"runtime/debug"
 	"testing"
 
 	"github.com/juntaki/transparent"
@@ -57,7 +58,8 @@ func BasicStorageFunc(t *testing.T, storage transparent.BackendStorage) {
 	storageErr, ok := err.(*transparent.KeyNotFoundError)
 	if ok {
 		if storageErr.Key != "test" {
-			t.Fatal("key is different", storageErr.Key)
+			debug.PrintStack()
+			t.Error("key is different", storageErr.Key)
 		}
 	} else {
 		t.Fatal(err, value2)

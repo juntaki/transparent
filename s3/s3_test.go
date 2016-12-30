@@ -73,10 +73,7 @@ func TestStorage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sss, err := NewSimpleStorage("bucket", svc)
-	if err != nil {
-		t.Fatal(err)
-	}
+	sss := NewSimpleStorage("bucket", svc)
 	test.BasicStorageFunc(t, sss)
 	test.SimpleStorageFunc(t, sss)
 
@@ -84,10 +81,7 @@ func TestStorage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ss, err := NewStorage("bucket", svc)
-	if err != nil {
-		t.Fatal(err)
-	}
+	ss := NewStorage("bucket", svc)
 	test.BasicStorageFunc(t, ss)
 
 	svc, err = newMockS3Client()

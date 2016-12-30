@@ -10,32 +10,32 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 )
 
 // NewS3Storage returns S3Storage
-func NewStorage(bucket string, svc s3iface.S3API) (transparent.BackendStorage, error) {
+func NewStorage(bucket string, svc s3iface.S3API) transparent.BackendStorage {
+	s := NewSimpleStorage(bucket, svc)
 	return &simple.StorageWrapper{
-		BackendStorage: &simpleStorage{
-			svc:    svc,
-			bucket: aws.String(bucket),
-		}}, nil
+		BackendStorage: s,
+	}
 }
 
 // s3SimpleStorage store file to Amazon S3 as object
 type simpleStorage struct {
+	bare   transparent.BackendStorage
 	svc    s3iface.S3API
 	bucket *string
 }
 
 // NewS3SimpleStorage returns s3SimpleStorage
-func NewSimpleStorage(bucket string, svc s3iface.S3API) (transparent.BackendStorage, error) {
+func NewSimpleStorage(bucket string, svc s3iface.S3API) transparent.BackendStorage {
 	return &simpleStorage{
+		bare:   NewBareStorage(svc),
 		svc:    svc,
 		bucket: aws.String(bucket),
-	}, nil
+	}
 }
 
 // Get is get request
@@ -44,21 +44,20 @@ func (s *simpleStorage) Get(k interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	paramsGet := &s3.GetObjectInput{
-		Bucket: s.bucket,
-		Key:    aws.String(key),
-	}
-	respGet, cause := s.svc.GetObject(paramsGet)
 
-	if cause != nil {
-		if aerr, ok := cause.(awserr.Error); ok {
-			if aerr.Code() == "NoSuchKey" {
-				return nil, &transparent.KeyNotFoundError{Key: key}
-			}
+	b := NewBare()
+	b.Value["Key"] = aws.String(key)
+	b.Value["Bucket"] = s.bucket
+
+	br, err := s.bare.Get(b)
+	if err != nil {
+		if _, ok := err.(*transparent.KeyNotFoundError); ok {
+			return nil, &transparent.KeyNotFoundError{Key: key}
 		}
-		return nil, errors.Wrapf(cause, "GetObject failed. key = %s", key)
+		return nil, err
 	}
-	body, cause := ioutil.ReadAll(respGet.Body)
+
+	body, cause := ioutil.ReadAll(br.(*Bare).getObjectOutput.Body)
 	if cause != nil {
 		return nil, errors.Wrapf(cause, "failed to read response body. key = %s", key)
 	}
@@ -76,16 +75,14 @@ func (s *simpleStorage) Add(k interface{}, v interface{}) error {
 		return err
 	}
 
-	params := &s3.PutObjectInput{
-		Bucket: s.bucket,
-		Key:    aws.String(key),
-		Body:   bytes.NewReader(body),
-	}
-	_, cause := s.svc.PutObject(params)
-	if cause != nil {
-		return errors.Wrapf(cause, "PutObject failed. key = %s", key)
-	}
-	return nil
+	bk := NewBare()
+	bk.Value["Key"] = aws.String(key)
+	bk.Value["Bucket"] = s.bucket
+
+	bv := NewBare()
+	bv.Value["Body"] = bytes.NewReader(body)
+
+	return s.bare.Add(bk, bv)
 }
 
 // Remove is delete request

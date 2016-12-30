@@ -1,6 +1,7 @@
 package s3
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -8,7 +9,9 @@ import (
 
 func TestS3Bare(t *testing.T) {
 	b := NewBare()
-	b.Value["Key"] = aws.String("test2")
+	b.Value["Key"] = aws.String("key")
+	b.Value["Bucket"] = aws.String("bucket")
+	b.Value["Body"] = bytes.NewReader([]byte("test"))
 	err := b.set()
 	if err != nil {
 		t.Error(err)

@@ -7,10 +7,7 @@ import (
 
 // NewS3Cache returns S3Cache
 func NewCache(bufferSize int, bucket string, svc s3iface.S3API) (transparent.Layer, error) {
-	s3, err := NewSimpleStorage(bucket, svc)
-	if err != nil {
-		return nil, err
-	}
+	s3 := NewSimpleStorage(bucket, svc)
 	layer, err := transparent.NewLayerCache(bufferSize, s3)
 	if err != nil {
 		return nil, err
@@ -20,10 +17,7 @@ func NewCache(bufferSize int, bucket string, svc s3iface.S3API) (transparent.Lay
 
 // NewS3Source returns S3Source
 func NewSource(bucket string, svc s3iface.S3API) (transparent.Layer, error) {
-	s3, err := NewSimpleStorage(bucket, svc)
-	if err != nil {
-		return nil, err
-	}
+	s3 := NewSimpleStorage(bucket, svc)
 	layer, err := transparent.NewLayerSource(s3)
 	if err != nil {
 		return nil, err

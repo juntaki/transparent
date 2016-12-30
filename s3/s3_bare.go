@@ -1,6 +1,8 @@
 package s3
 
 import (
+	"fmt"
+	"io"
 	"reflect"
 
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -21,8 +23,8 @@ type Bare struct {
 }
 
 // NewBare returns Bare
-func NewBare() *Bare {
-	return &Bare{
+func NewBare() Bare {
+	return Bare{
 		Value:             map[string]interface{}{},
 		getObjectInput:    &s3.GetObjectInput{},
 		getObjectOutput:   &s3.GetObjectOutput{},
@@ -44,22 +46,23 @@ func (sb *Bare) merge(target *Bare) error {
 // Set Value to s3 Objects
 func (sb *Bare) set() error {
 	objects := []interface{}{
-		sb.getObjectOutput,
 		sb.getObjectInput,
-		//sb.putObjectOutput,
 		sb.putObjectInput,
-		//sb.deleteObjectOutput,
 		sb.deleteObjectInput,
 	}
 	for _, o := range objects {
 		ov := reflect.ValueOf(o).Elem()
 		for k, v := range sb.Value {
+			if k == "Body" {
+				sb.putObjectInput.Body = v.(io.ReadSeeker)
+				continue
+			}
 			field := ov.FieldByName(k)
 			if field.IsValid() {
 				if reflect.TypeOf(v) == field.Type() {
 					field.Set(reflect.ValueOf(v))
 				} else {
-					return errors.New("type is not matched")
+					return fmt.Errorf("type is not matched %s %s", reflect.TypeOf(v), field.Type())
 				}
 			}
 		}
@@ -162,12 +165,12 @@ func (b *bareStorage) Remove(key interface{}) error {
 }
 
 func (b *bareStorage) validateBare(v interface{}) (*Bare, error) {
-	value, ok := v.(*Bare)
+	value, ok := v.(Bare)
 	if !ok {
 		return nil, &simple.StorageInvalidValueError{
 			Valid:   reflect.TypeOf(([]byte)("")),
 			Invalid: reflect.TypeOf(v),
 		}
 	}
-	return value, nil
+	return &value, nil
 }
