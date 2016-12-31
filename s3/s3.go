@@ -45,11 +45,12 @@ func (s *simpleStorage) Get(k interface{}) (interface{}, error) {
 		return nil, err
 	}
 
-	b := NewBare()
-	b.Value["Key"] = aws.String(key)
-	b.Value["Bucket"] = s.bucket
+	bk := BareKey{
+		Key:    aws.String(key),
+		Bucket: s.bucket,
+	}
 
-	br, err := s.bare.Get(b)
+	br, err := s.bare.Get(bk)
 	if err != nil {
 		if _, ok := err.(*transparent.KeyNotFoundError); ok {
 			return nil, &transparent.KeyNotFoundError{Key: key}
@@ -75,9 +76,10 @@ func (s *simpleStorage) Add(k interface{}, v interface{}) error {
 		return err
 	}
 
-	bk := NewBare()
-	bk.Value["Key"] = aws.String(key)
-	bk.Value["Bucket"] = s.bucket
+	bk := BareKey{
+		Key:    aws.String(key),
+		Bucket: s.bucket,
+	}
 
 	bv := NewBare()
 	bv.Value["Body"] = bytes.NewReader(body)
