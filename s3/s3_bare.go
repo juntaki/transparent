@@ -1,10 +1,13 @@
 package s3
 
 import (
+	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"reflect"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
@@ -14,8 +17,9 @@ import (
 )
 
 type BareKey struct {
-	Key    *string
-	Bucket *string
+	Key       string
+	Bucket    string
+	VersionId string
 }
 
 // Bare is key and value struct for BareStorage
@@ -39,8 +43,11 @@ func NewBare() *Bare {
 }
 
 func (sb *Bare) merge(key *BareKey) {
-	sb.Value["Key"] = key.Key
-	sb.Value["Bucket"] = key.Bucket
+	sb.Value["Key"] = aws.String(key.Key)
+	sb.Value["Bucket"] = aws.String(key.Bucket)
+	if key.VersionId != "" {
+		sb.Value["VersionId"] = aws.String(key.VersionId)
+	}
 }
 
 // Set Value to s3 Objects
@@ -54,7 +61,7 @@ func (sb *Bare) set() error {
 		ov := reflect.ValueOf(o).Elem()
 		for k, v := range sb.Value {
 			if k == "Body" {
-				sb.putObjectInput.Body = v.(io.ReadSeeker)
+				sb.putObjectInput.Body = bytes.NewReader(v.([]byte))
 				continue
 			}
 			field := ov.FieldByName(k)
@@ -77,7 +84,13 @@ func (sb *Bare) get(object interface{}) {
 		key := giv.Type().Field(i).Name
 		mapValue := giv.Field(i)
 		if mapValue.CanInterface() {
-			sb.Value[key] = mapValue.Interface()
+			if key == "Body" {
+				if mapValue.Interface() != nil {
+					sb.Value[key], _ = ioutil.ReadAll(mapValue.Interface().(io.Reader))
+				}
+			} else {
+				sb.Value[key] = mapValue.Interface()
+			}
 		}
 	}
 }

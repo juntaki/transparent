@@ -1,8 +1,6 @@
 package s3
 
 import (
-	"bytes"
-	"io/ioutil"
 	"reflect"
 
 	"github.com/juntaki/transparent"
@@ -26,7 +24,7 @@ func NewStorage(bucket string, svc s3iface.S3API) transparent.BackendStorage {
 type simpleStorage struct {
 	bare   transparent.BackendStorage
 	svc    s3iface.S3API
-	bucket *string
+	bucket string
 }
 
 // NewS3SimpleStorage returns s3SimpleStorage
@@ -34,7 +32,7 @@ func NewSimpleStorage(bucket string, svc s3iface.S3API) transparent.BackendStora
 	return &simpleStorage{
 		bare:   NewBareStorage(svc),
 		svc:    svc,
-		bucket: aws.String(bucket),
+		bucket: bucket,
 	}
 }
 
@@ -46,7 +44,7 @@ func (s *simpleStorage) Get(k interface{}) (interface{}, error) {
 	}
 
 	bk := BareKey{
-		Key:    aws.String(key),
+		Key:    key,
 		Bucket: s.bucket,
 	}
 
@@ -58,10 +56,7 @@ func (s *simpleStorage) Get(k interface{}) (interface{}, error) {
 		return nil, err
 	}
 
-	body, cause := ioutil.ReadAll(br.(*Bare).getObjectOutput.Body)
-	if cause != nil {
-		return nil, errors.Wrapf(cause, "failed to read response body. key = %s", key)
-	}
+	body := br.(*Bare).Value["Body"]
 	return body, nil
 }
 
@@ -77,12 +72,12 @@ func (s *simpleStorage) Add(k interface{}, v interface{}) error {
 	}
 
 	bk := BareKey{
-		Key:    aws.String(key),
+		Key:    key,
 		Bucket: s.bucket,
 	}
 
 	bv := NewBare()
-	bv.Value["Body"] = bytes.NewReader(body)
+	bv.Value["Body"] = body
 
 	return s.bare.Add(bk, bv)
 }
@@ -94,8 +89,8 @@ func (s *simpleStorage) Remove(k interface{}) error {
 		return err
 	}
 	params := &s3.DeleteObjectInput{
-		Bucket: s.bucket,
 		Key:    aws.String(key),
+		Bucket: aws.String(s.bucket),
 	}
 	_, cause := s.svc.DeleteObject(params)
 	if cause != nil {

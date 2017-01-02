@@ -24,3 +24,12 @@ func NewSource(bucket string, svc s3iface.S3API) (transparent.Layer, error) {
 	}
 	return layer, nil
 }
+
+func NewBareSource(svc s3iface.S3API) (transparent.Layer, error) {
+	s3 := NewBareStorage(svc)
+	layer, err := transparent.NewLayerSource(s3)
+	if err != nil {
+		return nil, err
+	}
+	return layer, nil
+}
